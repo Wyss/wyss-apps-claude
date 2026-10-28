@@ -1,5 +1,13 @@
 # Changes
 
+## 0.4.0 (2026-10-27)
+- Costing-change actions as the person: `claim_costing_change`, `mark_costing_change_staged`
+  (readback checked against the fill spec), `mark_costing_change_submitted` (after Save),
+  `file_costing_change_backup`, `report_costing_change_error`, `review_costing_change`
+  (mark ready / send back / cancel with the review page's rules). All preview unless
+  `confirm: true`; none writes to PeopleSoft. The `wyss-costing-changes` skill carries the
+  end-to-end flow with Claude in Chrome.
+
 ## 0.3.2 (2026-10-27)
 - Windows: a second server, `wyss-apps-win`, runs `bridge/wyss-apps-bridge.ps1` with PowerShell
   (token and URL read per request, like the bash bridge). Plugin manifests cannot choose a command
