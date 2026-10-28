@@ -1,8 +1,19 @@
 {
-  "name": "wyss-apps",
-  "owner": { "name": "Wyss Institute, Wyss Apps", "email": "matthew.laubach@wyss.harvard.edu" },
-  "metadata": { "description": "Claude plugin for Wyss Institute staff: Wyss Apps projects, science, people, grants and the costing queue, plus the Wyss vocabulary and intranet guides. Needs a Wyss Apps token (https://wigt.med.harvard.edu/tools/claude_access)." },
+  "name": "wyss-apps-claude",
+  "owner": {
+    "name": "Wyss Institute, Wyss Apps",
+    "email": "matthew.laubach@wyss.harvard.edu"
+  },
+  "metadata": {
+    "description": "Claude plugin for Wyss Institute staff: Wyss Apps projects, science, people, grants and the costing queue, plus the Wyss vocabulary and intranet guides. Needs a Wyss Apps token (https://wigt.med.harvard.edu/tools/claude_access)."
+  },
   "plugins": [
-    { "name": "wyss-apps", "source": "./", "description": "Wyss Apps for Claude", "version": "0.2.0", "category": "productivity" }
+    {
+      "name": "wyss-apps",
+      "source": "./",
+      "description": "Wyss Apps for Claude",
+      "version": "0.2.0",
+      "category": "productivity"
+    }
   ]
 }
