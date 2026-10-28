@@ -1,17 +1,102 @@
-// Wyss Apps for Claude: PeopleSoft "Department Budget Earnings" helpers.
-// Runs in the person's own Chrome through Claude in Chrome's JavaScript tool,
-// on the page opened by the direct URL. Everything is read or set by element
-// id (Beth's page map, 2026-10-27). Nothing here clicks Save.
+// Wyss Apps for Claude: PeopleSoft helpers.
+// Runs in the person's own Chrome through Claude in Chrome's JavaScript tool.
+// Two layers, so later PeopleSoft tasks reuse the first:
+//   PS   - generic classic-PeopleSoft layer: the TargetContent iframe document, the
+//          processing-indicator wait, set a field like a person would, click a control,
+//          page errors, and the coarse session gate PS.state() (ready | harvardkey | duo |
+//          not_authorized | timeout | maintenance | unknown).
+//   WYSS - the "Department Budget Earnings" costing page (Beth's page map, 2026-10-27):
+//          state (PS.state plus which costing page), probe, readPage, checkBefore, fill,
+//          verify, cancel, saved. Nothing here clicks Save; pay rates are never read.
 //
 // Usage from the skill: evaluate this whole file once per tab, then call
+//   WYSS.state()                      -> the coarse gate, with page: costing_search | department_budget_earnings | other_peoplesoft
 //   WYSS.probe()                      -> what the page looks like (ids found, rows, state)
 //   WYSS.readPage()                   -> the costing shown now (inputs or spans), as the readback
 //   WYSS.checkBefore(spec)            -> [] when the page's current lines equal spec.current_costing
 //   await WYSS.fill(spec)             -> adds the effective-dated row and keys every line; returns the readback
 //   WYSS.verify(spec, readback)       -> [] when the readback equals the spec (same rules as the server)
 //   WYSS.cancel()                     -> clicks Cancel (rehearsal only; never Save)
-//   WYSS.saved(spec)                  -> true when the page shows the row saved
-// Pay rates on the page are never read.
+//   WYSS.saved(spec)                  -> whether the page shows the row saved
+
+var PS = (function () {
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // The classic page lives in the TargetContent iframe when opened through the portal (/psp/);
+  // opened through /psc/ it is the top document. `probeId` is any id that only the page has.
+  function doc(probeId) {
+    var f = document.getElementById('ptifrmtgtframe') || document.querySelector('iframe[name="TargetContent"]');
+    try { if (f && f.contentDocument && (!probeId || f.contentDocument.getElementById(probeId))) return f.contentDocument; } catch (e) {}
+    return document;
+  }
+
+  // PeopleSoft refreshes the page after most field changes. Wait until the
+  // processing indicator is gone and the DOM has been stable for a moment.
+  async function idle(d, maxMs, signature) {
+    var start = Date.now(), last = null, stableSince = Date.now();
+    while (Date.now() - start < (maxMs || 15000)) {
+      var wait = d.getElementById('WAIT_win0') || d.getElementById('processing');
+      var busy = wait && wait.offsetParent !== null && getComputedStyle(wait).visibility !== 'hidden';
+      var sig = (d.body ? d.body.innerHTML.length : 0) + ':' + (signature ? signature() : '');
+      if (sig !== last) { last = sig; stableSince = Date.now(); }
+      if (!busy && Date.now() - stableSince > 400) return true;
+      await sleep(150);
+    }
+    return false;
+  }
+
+  function fire(e, type) { e.dispatchEvent(new Event(type, { bubbles: true })); }
+  function valueOf(e) { return (('value' in e && e.tagName !== 'SPAN') ? e.value : e.textContent || '').trim(); }
+
+  // Set one input the way a person would: focus, type, tab out (change + blur), then wait for the refresh.
+  async function setField(d, id, value, waitFn) {
+    var e = d.getElementById(id);
+    if (!e) throw new Error('missing field ' + id);
+    if (e.tagName !== 'INPUT' && e.tagName !== 'SELECT') throw new Error(id + ' is not editable (' + e.tagName + ')');
+    e.focus();
+    e.value = value;
+    fire(e, 'input'); fire(e, 'change'); fire(e, 'blur');
+    await waitFn();
+    var now = valueOf(d.getElementById(id) || e);
+    if (e.tagName === 'INPUT' && now !== value) throw new Error(id + ' shows ' + JSON.stringify(now) + ' after setting ' + JSON.stringify(value));
+    return now;
+  }
+
+  async function click(d, id, waitFn) {
+    var e = d.getElementById(id);
+    if (!e) throw new Error('missing control ' + id);
+    e.click();
+    await waitFn();
+  }
+
+  function errorsOnPage(d) {
+    var out = [];
+    var alert = d.querySelector('#alertmsg, .PSERRORTEXT, .ps_error, [id^="win0divPSERROR"]');
+    if (alert && alert.textContent.trim()) out.push(alert.textContent.trim().slice(0, 300));
+    d.querySelectorAll('.PSERROR, input.PSERROR, .psc_error').forEach(function (x) { out.push((x.id || x.className) + ' flagged'); });
+    return out;
+  }
+
+  // The coarse session gate, usable on any page (top document and the iframe).
+  // `pageReady(d)` says whether the expected PeopleSoft page is present in document d.
+  function state(pageReady) {
+    var top = document, host = location.host, title = top.title || '';
+    var body = (top.body ? top.body.textContent : '').replace(/\s+/g, ' ').slice(0, 6000);
+    if (/login\.harvard\.edu|key\.harvard\.edu/i.test(host) || (/HarvardKey/i.test(body) && top.querySelector('input[type="password"]'))) return { state: 'harvardkey', host: host };
+    if (/duosecurity\.com/i.test(host) || top.querySelector('iframe[src*="duosecurity"], #duo_iframe') || /Verify it.s you|Duo Push|Duo Mobile|Check for a Duo/i.test(body)) return { state: 'duo', host: host };
+    if (/not authorized|You are not authorized/i.test(body)) return { state: 'not_authorized', snippet: body.slice(0, 200) };
+    if (/session has expired|session expired|session timed out|sign in again|Your session is no longer valid/i.test(body)) return { state: 'timeout', snippet: body.slice(0, 200) };
+    var d = doc(), ready = pageReady ? pageReady(d) : null;
+    if (!ready && /temporarily unavailable|under maintenance|Service Unavailable|Bad Gateway|Gateway Time-out|cannot be displayed/i.test(title + ' ' + body.slice(0, 800))) return { state: 'maintenance', title: title };
+    var inner = (d.body ? d.body.textContent : '').replace(/\s+/g, ' ').slice(0, 6000);
+    if (ready) return Object.assign({ state: 'ready' }, ready);
+    if (/HarvardKey/i.test(inner) && d.querySelector('input[type="password"]')) return { state: 'harvardkey', host: host, frame: 'TargetContent' };
+    if (d.querySelector('form[name="win0"]') || /psp\/psprdaws|psc\/psprdaws/i.test(location.href)) return { state: 'ready', page: 'other_peoplesoft', title: title };
+    return { state: 'unknown', title: title, host: host, snippet: body.slice(0, 300) };
+  }
+
+  return { doc: doc, idle: idle, setField: setField, click: click, errorsOnPage: errorsOnPage, state: state, valueOf: valueOf, sleep: sleep };
+})();
 
 var WYSS = (function () {
   var F = 'HU_DEPBUDERN_VW_';
@@ -23,69 +108,22 @@ var WYSS = (function () {
   var ADD_ROW = '$ICField16$new$0$$0';
   var SAVE = 'HU_DPBUDERN_WRK_SAVE_BTN', CANCEL = 'HU_DPBUDERN_WRK_HOME_BUTTON';
 
-  function doc() {
-    // The classic page lives in the TargetContent iframe when opened through the portal (/psp/);
-    // opened through /psc/ it is the top document.
-    var f = document.getElementById('ptifrmtgtframe') || document.querySelector('iframe[name="TargetContent"]');
-    try { if (f && f.contentDocument && f.contentDocument.getElementById(EMPLID)) return f.contentDocument; } catch (e) {}
-    return document;
-  }
+  function doc() { return PS.doc(EMPLID); }
   function el(id) { return doc().getElementById(id); }
-  function text(id) { var e = el(id); if (!e) return null; var v = ('value' in e && e.tagName !== 'SPAN') ? e.value : e.textContent; return (v || '').trim(); }
+  function text(id) { var e = el(id); return e ? PS.valueOf(e) : null; }
   function isInput(id) { var e = el(id); return !!e && (e.tagName === 'INPUT' || e.tagName === 'SELECT' || e.tagName === 'TEXTAREA'); }
   function lineCount() { var n = 0; while (el(F + SEG.pct + '$' + n)) n++; return n; }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function toUS(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m ? m[2] + '/' + m[3] + '/' + m[1] : iso; }
   function toISO(us) { var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(us); return m ? m[3] + '-' + pad(+m[1]) + '-' + pad(+m[2]) : us; }
   function pct3(v) { var n = parseFloat(String(v).replace(/[^\d.\-]/g, '')); return isNaN(n) ? '' : n.toFixed(3); }
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  // PeopleSoft refreshes the page after most field changes. Wait until the
-  // processing indicator is gone and the DOM has been stable for a moment.
-  async function idle(maxMs) {
-    var start = Date.now(), last = null, stableSince = Date.now();
-    while (Date.now() - start < (maxMs || 15000)) {
-      var d = doc();
-      var wait = d.getElementById('WAIT_win0') || d.getElementById('processing');
-      var busy = wait && wait.offsetParent !== null && getComputedStyle(wait).visibility !== 'hidden';
-      var sig = d.body ? d.body.innerHTML.length + ':' + lineCount() : '';
-      if (sig !== last) { last = sig; stableSince = Date.now(); }
-      if (!busy && Date.now() - stableSince > 400) return true;
-      await sleep(150);
-    }
-    return false;
-  }
+  function idle(maxMs) { return PS.idle(doc(), maxMs, lineCount); }
 
-  function fire(e, type) { e.dispatchEvent(new Event(type, { bubbles: true })); }
+  function setField(id, value) { return PS.setField(doc(), id, value, idle); }
+  function click(id) { return PS.click(doc(), id, idle); }
 
-  // Set one input the way a person would: focus, type, tab out (change + blur), then wait for the refresh.
-  async function setField(id, value) {
-    var e = el(id);
-    if (!e) throw new Error('missing field ' + id);
-    if (e.tagName !== 'INPUT' && e.tagName !== 'SELECT') throw new Error(id + ' is not editable (' + e.tagName + ')');
-    e.focus();
-    e.value = value;
-    fire(e, 'input'); fire(e, 'change'); fire(e, 'blur');
-    await idle();
-    var now = text(id);
-    if (e.tagName === 'INPUT' && now !== value) throw new Error(id + ' shows ' + JSON.stringify(now) + ' after setting ' + JSON.stringify(value));
-    return now;
-  }
-
-  async function click(id) {
-    var e = el(id);
-    if (!e) throw new Error('missing control ' + id);
-    e.click();
-    await idle();
-  }
-
-  function errorsOnPage() {
-    var d = doc(), out = [];
-    var alert = d.querySelector('#alertmsg, .PSERRORTEXT, .ps_error, [id^="win0divPSERROR"]');
-    if (alert && alert.textContent.trim()) out.push(alert.textContent.trim().slice(0, 300));
-    d.querySelectorAll('.PSERROR, input.PSERROR, .psc_error').forEach(function (x) { out.push((x.id || x.className) + ' flagged'); });
-    return out;
-  }
+  function errorsOnPage() { return PS.errorsOnPage(doc()); }
 
   function totalShown() {
     var d = doc();
@@ -118,6 +156,15 @@ var WYSS = (function () {
       errors: errorsOnPage()
     };
   }
+
+  // The coarse gate plus which costing page this is.
+  function costingPage(d) {
+    if (d.getElementById(EMPLID) || d.getElementById(EFFDT)) return { page: 'department_budget_earnings', employee: text(EMPLID) };
+    var inner = (d.body ? d.body.textContent : '').replace(/\s+/g, ' ').slice(0, 6000);
+    if (/Manage Costing|Costing Summary|Include Inactive Employees|Costing Search/i.test(inner) || d.querySelector('[id^="HU_COSTING_SRCH"], [id*="HU_COSTING_SEARCH"]')) return { page: 'costing_search' };
+    return null;
+  }
+  function state() { return PS.state(costingPage); }
 
   function probe() {
     var d = doc();
@@ -209,6 +256,6 @@ var WYSS = (function () {
     return { saved: matches && banner, matches: matches, banner: banner, editable: page.editable, page: page };
   }
 
-  return { probe: probe, readPage: readPage, checkBefore: checkBefore, fill: fill, verify: verify, cancel: cancel, saved: saved, ids: { SAVE: SAVE, CANCEL: CANCEL, ADD_ROW: ADD_ROW } };
+  return { state: state, probe: probe, readPage: readPage, checkBefore: checkBefore, fill: fill, verify: verify, cancel: cancel, saved: saved, ids: { SAVE: SAVE, CANCEL: CANCEL, ADD_ROW: ADD_ROW } };
 })();
 'ok';
