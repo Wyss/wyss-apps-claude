@@ -11,7 +11,11 @@
 #   token: $WYSS_APPS_TOKEN, then the file $WYSS_APPS_TOKEN_FILE, then ~/.wyss-apps/token
 #   url:   $WYSS_APPS_URL, then the file ~/.wyss-apps/url, then https://wigt.med.harvard.edu/mcp
 set -u
-VERSION="0.3.0"
+# The version reported to Wyss Apps is the plugin's (.claude-plugin/plugin.json next to
+# this bridge's folder), so the server can tell the person when the plugin is behind.
+PLUGIN_JSON="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/.claude-plugin/plugin.json"
+VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$PLUGIN_JSON" 2>/dev/null | head -n 1)"
+[ -n "$VERSION" ] || VERSION="0.3.0"
 CLIENT="wyss-apps-plugin-bridge/$VERSION"
 DEFAULT_URL="https://wigt.med.harvard.edu/mcp"
 TOKEN_HELP="Create a token at https://wigt.med.harvard.edu/tools/claude_access and save it in ~/.wyss-apps/token (no restart needed)."

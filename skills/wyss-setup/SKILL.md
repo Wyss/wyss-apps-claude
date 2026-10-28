@@ -15,7 +15,7 @@ Call `whoami`.
 
 | Result | Say |
 |---|---|
-| Answers with a name and tools | "Connected to Wyss Apps as <name>." (one line; then go on) |
+| Answers with a name and tools | "Connected to Wyss Apps as <name>." (one line; then go on). If `plugin.update_available` is true, add its `plugin.update` line: the plugin is behind and the person should update it. |
 | Error "No Wyss Apps token" | "The token file is missing. Open <setup page>, create a token, and run the one-line command the page shows for your computer. Then say check again." |
 | Error "refused the token (401)" | "The token has expired or was revoked. Open <setup page>, create a new token and save it with the page's command. Then say check again." |
 | Error "refused this account (403)" | "Your Wyss Apps account does not have the AI Assistant tool yet. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu) to add it." |

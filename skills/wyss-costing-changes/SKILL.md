@@ -34,7 +34,7 @@ card to the costing channel per reason per day; the chat is not read when they a
 
 | # | Check | How | Fail → |
 |---|---|---|---|
-| 1 | Wyss Apps token | `whoami` answers and `tools` includes Costing Changes | present: repeat the bridge's one-sentence fix; scheduled: `report_run_status` `token_invalid` or `vpn` (from the message) and stop |
+| 1 | Wyss Apps token | `whoami` answers and `tools` includes Costing Changes (if `plugin.update_available`, say its `plugin.update` line once and go on) | present: repeat the bridge's one-sentence fix; scheduled: `report_run_status` `token_invalid` or `vpn` (from the message) and stop |
 | 2 | Work exists | `list_costing_changes` `status: ["ready","claimed","staged"]`: anything ready, or claimed/staged by this person | "Nothing waiting." and stop (scheduled: that one line, no card) |
 | 3 | Not blackout | `payroll_blackout` is null | "Payroll blackout until <date>; nothing keyed." Stop; no card |
 | 4 | Chrome reachable | the Claude in Chrome tools exist and `tabs_context_mcp` answers | present: "Open Chrome and leave it open, then say go." scheduled: `report_run_status` `chrome_closed` ("Open Chrome and leave it open; the next run is at <time>") and stop |

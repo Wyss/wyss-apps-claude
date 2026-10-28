@@ -13,7 +13,7 @@ once in brackets.
 ## Before anything (silent when it passes)
 
 Call `whoami` once per session before the first answer. If it answers, say nothing about setup
-and do the work. If it fails, its message already says the one thing to do (missing token,
+and do the work. If `whoami` answers with `plugin.update_available` true, add one line, its `plugin.update` text, and go on. If it fails, its message already says the one thing to do (missing token,
 expired token, not on the VPN, account without access): repeat that sentence and stop. If the
 Wyss Apps tools are missing altogether, the plugin is not enabled for this chat: say so with the
 link `https://github.com/Wyss/wyss-apps-claude` (Cowork: Customize, Plugins).

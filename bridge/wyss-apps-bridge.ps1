@@ -12,7 +12,14 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::S
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $Utf8NoBom
 [Console]::InputEncoding = $Utf8NoBom
-$Client = "wyss-apps-plugin-bridge-ps/0.4.1"
+# The version reported to Wyss Apps is the plugin's (.claude-plugin/plugin.json next to
+# this bridge's folder), so the server can tell the person when the plugin is behind.
+$PluginVersion = "0.4.1"
+try {
+  $PluginJson = Join-Path (Split-Path -Parent $PSScriptRoot) ".claude-plugin\plugin.json"
+  if (Test-Path $PluginJson) { $v = (Get-Content -Raw $PluginJson | ConvertFrom-Json).version; if ($v) { $PluginVersion = "$v" } }
+} catch {}
+$Client = "wyss-apps-plugin-bridge-ps/$PluginVersion"
 $DefaultUrl = "https://wigt.med.harvard.edu/mcp"
 $TokenHelp = "Create a token at https://wigt.med.harvard.edu/tools/claude_access and save it in $HOME\.wyss-apps\token (no restart needed)."
 
