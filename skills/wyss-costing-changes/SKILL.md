@@ -38,7 +38,7 @@ card to the costing channel per reason per day; the chat is not read when they a
 | 2 | Work exists | `list_costing_changes` `status: ["ready","claimed","staged"]`: anything ready, or claimed/staged by this person | "Nothing waiting." and stop (scheduled: that one line, no card) |
 | 3 | Not blackout | `payroll_blackout` is null | "Payroll blackout until <date>; nothing keyed." Stop; no card |
 | 4 | Chrome reachable | the Claude in Chrome tools exist and `tabs_context_mcp` answers | present: "Open Chrome and leave it open, then say go." scheduled: `report_run_status` `chrome_closed` ("Open Chrome and leave it open; the next run is at <time>") and stop |
-| 5 | PeopleSoft session | open the Costing search URL in a new tab, load `peoplesoft.js`, `WYSS.state()` | see the state table |
+| 5 | PeopleSoft session | open the Costing search URL in a new tab, load `lib/peoplesoft.js`, `WYSS.state()` | see the state table |
 | 6 | PeopleSoft access | state is `ready` with `page: "costing_search"` | `report_run_status` `no_access` ("Your PeopleSoft account cannot open costing pages; ask HR Systems for the Department Budget Earnings role"). Stop the whole run; do not try each request |
 
 Costing search URL:
@@ -85,8 +85,9 @@ never refilled by a scheduled run.
    ```
    https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_CACTG.HU_DPTBGT_ERN.GBL?Page=HU_DPTBGT_ERN&Action=U&ForceSearch=Y&BUDGET_LEVEL_INDC=<spec.budget_level>&DEPTID=<spec.deptid>&EMPL_RCD=<spec.empl_rcd>&FISCAL_YEAR=<spec.fiscal_year>&POSITION_NBR=<spec.position_no>
    ```
-3. Load `peoplesoft.js` (read it from this skill's folder, evaluate the whole file in the tab;
-   it defines `PS`, the generic PeopleSoft layer, and `WYSS`, the costing page). `WYSS.state()`
+3. Load the script: read `lib/peoplesoft.js` from the plugin root (`${CLAUDE_PLUGIN_ROOT}/lib/peoplesoft.js`)
+   and evaluate the whole file in the tab; it defines `PS`, the generic PeopleSoft layer, and
+   `WYSS`, the costing page. `WYSS.state()`
    again: the session can drop mid-run. Not `ready`: `release_costing_change` (back to the
    queue), then the state table, and stop the run. `ready` but `page` is not
    `department_budget_earnings`: `report_costing_change_error` with `WYSS.probe()`, skip.
@@ -219,7 +220,7 @@ Statuses: new → validated → ready → claimed → staged → submitted → b
 needs_review, error, cancelled. `ps_fill_spec` (version 2): `budget_level`, `deptid`,
 `empl_rcd`, `fiscal_year`, `position_no` build the URL; `effective_date` is ISO (typed
 MM/DD/YYYY); `distributions[]` carries `tub`, `org`, `fund`, `activity`, `subactivity`, `root`,
-`pct` (`object` is readback only); `current_costing.lines` is the before. `peoplesoft.js`:
+`pct` (`object` is readback only); `current_costing.lines` is the before. `lib/peoplesoft.js`:
 `PS` (generic: `doc`, `idle`, `setField`, `click`, `state`) and `WYSS` (this page: `state`,
 `probe`, `readPage`, `checkBefore`, `fill`, `verify`, `cancel`, `saved`). Nothing here writes
 to PeopleSoft.
