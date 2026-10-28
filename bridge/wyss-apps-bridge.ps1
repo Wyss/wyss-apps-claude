@@ -5,9 +5,14 @@
 #   token: $env:WYSS_APPS_TOKEN, then $env:WYSS_APPS_TOKEN_FILE, then $HOME\.wyss-apps\token
 #   url:   $env:WYSS_APPS_URL, then $HOME\.wyss-apps\url, then https://wigt.med.harvard.edu/mcp
 $ErrorActionPreference = "Stop"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[Console]::InputEncoding = [System.Text.Encoding]::UTF8
-$Client = "wyss-apps-plugin-bridge-ps/0.3.2"
+$ProgressPreference = "SilentlyContinue"   # Windows PowerShell 5.1 would otherwise draw a progress bar per request
+# Windows PowerShell 5.1 on an older Windows build may still default to TLS 1.0; make sure 1.2 is on.
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+# UTF-8 without a byte-order mark on both pipes: a BOM in front of the first reply breaks the client's JSON parse.
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $Utf8NoBom
+[Console]::InputEncoding = $Utf8NoBom
+$Client = "wyss-apps-plugin-bridge-ps/0.4.1"
 $DefaultUrl = "https://wigt.med.harvard.edu/mcp"
 $TokenHelp = "Create a token at https://wigt.med.harvard.edu/tools/claude_access and save it in $HOME\.wyss-apps\token (no restart needed)."
 

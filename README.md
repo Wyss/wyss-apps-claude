@@ -94,3 +94,19 @@ is `%USERPROFILE%\.wyss-apps\token`, written with the PowerShell line in the set
 ```json
 { "mcpServers": { "wyss-apps": { "command": "bash", "args": ["/path/to/claude-plugin/bridge/wyss-apps-bridge.sh"] } } }
 ```
+
+## Troubleshooting on Windows (and the expected failed server)
+
+- The plugin declares two servers because a plugin manifest cannot pick a command per operating
+  system: `wyss-apps` (bash, for Mac) and `wyss-apps-win` (PowerShell, for Windows). On a Mac
+  `wyss-apps-win` shows as failed; on Windows `wyss-apps` does. That is expected: the other one
+  is yours, and the tools are the same.
+- "running scripts is disabled on this system": Windows PowerShell's execution policy blocks the
+  bridge script. Open PowerShell and run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`,
+  answer Y, then restart Claude. If that command is refused, the policy is set by group policy;
+  tell Matthew Laubach.
+- Check the token file: in PowerShell, `Get-Content $HOME\.wyss-apps\token` should print one line
+  starting with `wyss_`. Re-run the setup prompt's PowerShell line (with the token in the
+  clipboard) to replace it; no restart is needed.
+- "Cannot reach Wyss Apps": connect to the Wyss VPN (the server is not reachable from outside).
+- The bridge needs nothing installed: Windows PowerShell 5.1 (every Windows 10/11) is enough.

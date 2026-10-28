@@ -1,5 +1,13 @@
 # Changes
 
+## 0.4.1 (2026-10-28)
+- Windows bridge hardened for Windows PowerShell 5.1: no progress bar on the output pipe, TLS 1.2
+  forced on, UTF-8 without a byte-order mark on stdin/stdout. Exercised end to end under
+  PowerShell 7 (initialize, tools/list, whoami, parse error, CRLF token and URL files, 401/403/
+  unreachable mapping); 5.1 itself still awaits a first Windows user.
+- README: what the expected failed sibling server looks like, the "running scripts is disabled"
+  fix, and how to check the token file on Windows.
+
 ## 0.4.0 (2026-10-27)
 - Costing-change actions as the person: `claim_costing_change`, `mark_costing_change_staged`
   (readback checked against the fill spec), `mark_costing_change_submitted` (after Save),
