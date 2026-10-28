@@ -1,0 +1,94 @@
+---
+name: wyss-metrics
+description: The Wyss Apps analytics cheat sheet - how every sponsored-project and Wyss-project metric is defined (submitted, awarded, declined, selected for funding, proposed vs anticipated vs obligated dollars, success rate, time to award, new-money requests, burndown, burn and runway, effort FTE), which tool answers which question, and the classification dimensions (Grand Challenge, platform, funding source, sponsor, fiscal year). Use for any question about faculty performance, grant success, dollars by year, portfolio, pipeline, spend or who is funded on what.
+---
+
+# Wyss metrics cheat sheet
+
+Numbers from Wyss Apps mean one thing each. Use these definitions, name the metric in every
+sentence, and call `wyss_guide` (topic metrics) if this file is not loaded.
+
+## Which tool answers what
+
+| Question | Tool |
+|---|---|
+| "How is Prof. X doing / what has X submitted, won, lost, by year?" | `faculty_view` (name; optional `fiscal_years`) |
+| "Tell me everything about grant / fund 377514 / this project" | `sponsored_project_lookup` (id, fund, GMAS id or name) |
+| "What does the Wyss do on topic Y, who works on it?" | `search_science`, then `get_project` |
+| "How many projects in Grand Challenge Z / platform P?" | `list_science_themes` (counts), `search_science` with the filter (list) |
+| "Who is on the team / who works here on Y?" | `search_people`, `get_project` team |
+| "Where does project Q stand in the costing queue?" | `list_costing_changes`, `get_costing_change` |
+| Writing it up | `wyss_guide` (topic style) first |
+
+## Time
+
+- **Fiscal year (FY)**: Harvard's, July 1 to June 30, named for the year it ends. FY2027 = 2026-07-01
+  to 2027-06-30. Quarters: Q1 Jul-Sep, Q2 Oct-Dec, Q3 Jan-Mar, Q4 Apr-Jun.
+- A project belongs to a year **by the date of the event** you are counting (submitted date, award
+  date), never by its start date, except "active portfolio", which is a snapshot of today.
+
+## Sponsored projects (GMAS)
+
+| Metric | Definition | Source field |
+|---|---|---|
+| **Submitted** | Proposal went to the sponsor in the period | `date_submitted` |
+| **Awarded** | Sponsor awarded it in the period | `segment_award_date` |
+| **Declined** | Sponsor said no in the period (or a submission from that year now reads Not Funded) | `segment_reject_date`, status |
+| **Pending** | Submitted, neither awarded nor declined yet | derived |
+| **Selected for funding** | Flagged by Wyss as expected to be funded while still pending; a pipeline, not bounded by a period | `selected_for_funding` |
+| **Status** | GMAS status with an optional Wyss override: Pending, Active, Not Funded, Completed, Closed, Cancelled, Terminated | `effective_status` |
+| **Proposed $** | What was asked for (direct + indirect) | `effective_proposed_*` |
+| **Anticipated $** | What the sponsor is expected to award over the whole segment; the figure on awards | `effective_anticipated_*` |
+| **Obligated $** | What GMAS says is committed so far (increments add up to anticipated) | `wigt_obligated_*` |
+| **Awarded $ (Wyss project)** | Money actually recorded on a Wyss project's funding rows | funding rows |
+| **Direct / indirect** | Direct costs vs overhead; total = both | `_direct`, `_indirect`, `_total` |
+| **Success rate** | awarded / (awarded + declined) among the projects **submitted** in the year; pending excluded from the denominator. Quote the counts with it ("3 of 4 decided") | derived |
+| **Time to award** | Days from `date_submitted` to `segment_award_date`; report the median | derived |
+| **New-money requests** | GMAS requests of type Initial, Supplement, Renewal, by date sent to the sponsor. Continuations are the next slice of already-awarded money, not new money; prior versions duplicate a later request | `wigt_requests` |
+| **Award revisions** | GMAS commitments; each carries an anticipated and obligated **increment**; they sum to the segment totals | `wigt_award_revisions` |
+| **Fellowships, billing agreements** | Left out of faculty metrics (as the Summary by Faculty report does) unless asked | `research_type_desc`, `funding_instrument_desc` |
+| **Split project** | One grant divided between PIs with per-PI amounts; the quarterly report lists allocations per PI, `faculty_view` counts the project whole under its PI | split submissions |
+
+Wyss overrides: a project can carry Wyss proposed/anticipated figures that replace GMAS's;
+`effective_*` honours them and the payload says so (`uses_wyss_*_override`).
+
+## Money on the ground (finance; needs financial access)
+
+| Metric | Definition |
+|---|---|
+| **Account** | A Harvard account under the project (33-digit chart string; the 6-digit **fund** is what people quote), with an **expense type**: MTDC (direct costs that carry overhead), NonMTDC (direct, no overhead), IDC (the overhead itself) |
+| **Allocated** | Sum of the accounts' `allocated_amt`, what finance has released to spend |
+| **Spent** | Net of all posted transactions on the project's accounts (credits reduce it) |
+| **Balance** | Allocated minus spent |
+| **Unallocated** | Anticipated minus allocated |
+| **% spent** | Spent / anticipated |
+| **Months elapsed / remaining** | Against the anticipated start and end dates |
+| **Monthly burn** | Spent / months elapsed; **runway** = balance / burn. Rough: say "about" |
+| **On pace** | % of the period elapsed, to compare with % spent |
+| **Spend by FY and expense type** | Transactions grouped by fiscal year and MTDC / NonMTDC / IDC |
+
+Burndown figures are cached for 24 hours on the website and here; say "as of" with
+`calculated_at` when it matters.
+
+## People on the project (needs the Effort History tool)
+
+- **Effort**: the current payroll costing from the nightly feed: each person's **percent on the
+  project** (`dist_pct`, sum of their lines on its fund + activity) and **FTE on the project**
+  (`fin_fte`). Headcount and FTE total are per project. No salaries or rates exist in these
+  answers; never estimate them.
+
+## Classification dimensions (both project types)
+
+Grand Challenge (6), platform initiative (9), funding source (internal vs sponsored types), project
+tag, category (Sponsored / Wyss Internal) and subcategory (Key Project, At Risk), sponsor (GMAS
+primary sponsor), faculty (linked profile, else Wyss faculty, else GMAS PI), fiscal year, status.
+`list_science_themes` gives the current names with counts. A project can carry several Grand
+Challenges, platforms and funding sources: counts by those dimensions overlap and must not be
+summed to a total.
+
+## Saying it
+
+- Always: which metric, which year, which dollars, whether the Wyss override applied.
+- "Won 3 of 4 decided submissions in FY2026 (75%); one still pending" beats "75% success".
+- Dollars in USD with thousands separators; millions rounded with "about".
+- When a part is in `sections_hidden_for_you`, say the person's account does not have that access.

@@ -1,0 +1,13 @@
+{
+  "wyss-apps": {
+    "type": "http",
+    "url": "${user_config.wyss_apps_url}",
+    "headers": {
+      "Authorization": "Bearer ${user_config.wyss_apps_token}"
+    }
+  },
+  "wyss-apps-local": {
+    "command": "bash",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/wyss-apps-bridge.sh"]
+  }
+}
