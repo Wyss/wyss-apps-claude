@@ -31,14 +31,16 @@ there and reads your token from the file.
 
 ## Claude Code (terminal)
 
-Paste the one-line command shown on the Claude access page (it already has your token in it):
+With the plugin installed (`claude plugin marketplace add Wyss/wyss-apps-claude`, then
+`claude plugin install wyss-apps@wyss-apps-claude --scope user`) Claude Code uses the same local
+bridge and the same token file, nothing else to configure. Type `/mcp` to check the connection.
+
+Not using the plugin (or on Windows, where the bridge's bash is missing)? Paste the one-line command
+shown on the Claude access page instead; it carries your token:
 
 ```bash
 claude mcp add --transport http wyss-apps https://wigt.med.harvard.edu/mcp --header "Authorization: Bearer wyss_…"
 ```
-
-Then type `/mcp` in Claude Code to check the connection. Add `--scope user` to make it available in
-every folder on that computer.
 
 ## The skills (optional, recommended for regular users)
 
@@ -51,9 +53,7 @@ costing-change queue, for Beth and the finance managers). The style guide is als
 - Claude Desktop / claude.ai / Cowork: download **the Wyss Apps skills** (`wyss-apps-plugin.zip`)
   from the Claude access page and add them under **Customize → Plugins → Add → upload**.
   The data connection still comes from the extension above.
-- Claude Code: unzip and run `claude --plugin-dir <folder>`, or install from a marketplace that
-  has this folder. Claude Code prompts for your token when it enables the plugin
-  (`.mcp.json` here uses a secure `userConfig` field).
+- Claude Code: install from the marketplace (above); the plugin reads the token file.
 
 ## If something fails
 
@@ -61,7 +61,7 @@ costing-change queue, for Beth and the finance managers). The style guide is als
 |---|---|---|
 | Claude Desktop refuses to install the `.mcpb` | Your Claude organisation turned on the extension allow-list | Tell Matthew. Fallback: Claude Code, or a `claude_desktop_config.json` entry running `bridge/wyss-apps-bridge.mjs` with `WYSS_APPS_TOKEN` |
 | Extension installed, but Claude sees no Wyss Apps tools | Claude Desktop not restarted; Cowork task running in the cloud; off the VPN | Restart Claude Desktop; start the Cowork task on your computer; connect to the VPN |
-| Claude says "invalid_token" | Token expired or revoked | Create a new one and paste it into the extension's settings (or `claude mcp remove wyss-apps` and add again) |
+| Claude says "invalid_token" | Token expired or revoked | Create a new one on the Claude access page and save it to `~/.wyss-apps/token` (the one-line command); the next request uses it, no restart |
 | Claude says the account lacks the Claude access tool | A super user turned the tool off for you | Ask Matthew or a super user |
 | Claude says it can't see financials | Your account has no financial access | That is the permission model working; ask a super user if you need it |
 | "No sponsored project with id …" | Outside your scope (restricted accounts) or wrong id | Search again by name |
@@ -82,11 +82,12 @@ same connection as a local server that Cowork runs on your Mac:
    mkdir -p ~/.wyss-apps && pbpaste > ~/.wyss-apps/token && chmod 600 ~/.wyss-apps/token
    ```
 
-3. In Claude: **Customize → Plugins → Add → upload** the zip, and enable it.
+3. In Claude: **Customize → Plugins → Add → Add marketplace**, paste `https://github.com/Wyss/wyss-apps-claude`, install **wyss-apps**, enable it.
 4. Start a Cowork task **on your computer** and ask Claude to call `whoami`.
 
-The bridge is `bridge/wyss-apps-bridge.sh` (bash + curl, nothing to install). The same file works
-in `claude_desktop_config.json` for Claude Desktop chat:
+The bridge is `bridge/wyss-apps-bridge.sh` (bash + curl, nothing to install); it reads the token
+and URL on every request, so replacing the token file needs no restart. The same file works in
+`claude_desktop_config.json` for Claude Desktop chat:
 
 ```json
 { "mcpServers": { "wyss-apps": { "command": "bash", "args": ["/path/to/claude-plugin/bridge/wyss-apps-bridge.sh"] } } }

@@ -1,7 +1,7 @@
 {
   "name": "wyss-apps",
-  "version": "0.2.1",
-  "description": "Wyss Apps for Claude: look up Wyss Institute projects, science, people, faculty performance, grants and the costing-change queue as yourself, through the Wyss Apps MCP server. Claude Code uses the http server with your token; Cowork and Claude Desktop use the local bridge, which reads your token from ~/.wyss-apps/token.",
+  "version": "0.3.0",
+  "description": "Wyss Apps for Claude: look up Wyss Institute projects, science, people, faculty performance, grants and the costing-change queue as yourself. One local bridge everywhere (Claude Code, Claude Desktop, Cowork on your computer) that reads your Wyss Apps token from ~/.wyss-apps/token.",
   "author": {
     "name": "Matthew Laubach",
     "email": "matthew.laubach@wyss.harvard.edu"
@@ -13,20 +13,5 @@
     "projects",
     "gmas",
     "mcp"
-  ],
-  "userConfig": {
-    "wyss_apps_token": {
-      "type": "string",
-      "sensitive": true,
-      "description": "Your personal Wyss Apps access token (create one at https://wigt.med.harvard.edu/tools/claude_access). Starts with wyss_.",
-      "title": "Wyss Apps access token",
-      "required": false
-    },
-    "wyss_apps_url": {
-      "type": "string",
-      "default": "https://wigt.med.harvard.edu/mcp",
-      "description": "The Wyss Apps MCP endpoint. Leave the default unless you are testing a dev server.",
-      "title": "Wyss Apps MCP URL"
-    }
-  }
+  ]
 }
