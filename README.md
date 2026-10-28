@@ -12,23 +12,22 @@ itself.
 
 ## The easy way: let Claude walk you through it
 
-Open **Claude access** in Wyss Apps (https://wigt.med.harvard.edu/tools/claude_access), click
-**Copy the setup prompt**, and paste it into Claude Desktop or a Cowork task running on your
-computer. Claude explains each step and waits for you. The steps it will take you through:
+Open **AI Assistant (Claude)** in Wyss Apps (https://wigt.med.harvard.edu/tools/claude_access),
+click **Copy the setup prompt**, and paste it into Claude (Desktop chat, or a Cowork task running on
+your computer). Claude explains each step and waits for you:
 
-1. Create a token on that page (name it after your computer; it starts with `wyss_` and is shown
-   once; treat it like a password).
-2. Download the **Wyss Apps extension** (`wyss-apps.mcpb`) from the same page and double-click
-   it. Claude Desktop asks to install it.
-3. Paste the token into **Wyss Apps access token** in the extension's settings. It is stored in
-   your computer's keychain; the connection is made from your Mac, never from the cloud.
+1. Create a token on that page (name it after your computer; it starts with `wyss_`, is shown once;
+   treat it like a password).
+2. Save it in a file with one line in Terminal (the token is still in your clipboard):
+   `mkdir -p ~/.wyss-apps && pbpaste > ~/.wyss-apps/token && chmod 600 ~/.wyss-apps/token`
+3. Add this plugin: Customize → Plugins → Add → **Add marketplace**, paste
+   `https://github.com/Wyss/wyss-apps-claude`, install **wyss-apps**, enable it.
 4. Ask Claude to call `whoami`. It reports who Wyss Apps thinks you are.
-5. Connect **Microsoft 365** in Claude (Settings → Connectors → Microsoft 365 → Connect, your
-   Harvard account) so Claude can also answer "how do I" questions from the Wyss intranet on
-   SharePoint. Nothing to install; the connector is part of Claude.
+5. Connect **Microsoft 365** in Claude (Customize → Connectors) so Claude can also answer "how do I"
+   questions from the Wyss intranet.
 
-In **Cowork**, start the task on **your computer** (not in the cloud): local connections only
-run there.
+In **Cowork**, start the task on **your computer** (not in the cloud): the plugin's connection runs
+there and reads your token from the file.
 
 ## Claude Code (terminal)
 
