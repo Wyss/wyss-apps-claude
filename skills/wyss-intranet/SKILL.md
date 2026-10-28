@@ -8,7 +8,7 @@ description: Answer Wyss Institute administrative questions (policies, HR and on
 Administrative answers live on the Wyss intranet, a SharePoint Online site:
 `https://hu.sharepoint.com/sites/wyss` (home: `SitePages/Home.aspx`). Claude reaches it through the
 **Microsoft 365 connector** the person connected in Claude with their own Harvard account, so
-Claude sees exactly the pages and documents that person can open. Wyss Apps (the `wyss-apps`
+Claude sees exactly the pages and documents that person can open. Wyss Apps (the `wyss-projects`
 tools) is the record of projects, grants, people and money; the intranet is the record of how
 things are done. Use both: process from the intranet, facts from Wyss Apps.
 
@@ -30,7 +30,7 @@ things are done. Use both: process from the intranet, facts from Wyss Apps.
    file it came from (the SharePoint web URL), and the contact named on that page if there is
    one. One source per claim; do not stitch an answer from guesses.
 5. **Data questions go to Wyss Apps.** "What is the status of grant X", "who maintains project
-   Y", "how much was awarded": use the `wyss-apps` tools, then, if the person also asks *how*
+   Y", "how much was awarded": use the `wyss-projects` tools, then, if the person also asks *how*
    (how to request a costing change, how to submit an invoice), come back to the intranet.
 6. **Hand off when the intranet is silent.** If no page answers, say so plainly and name the
    office that owns the topic (see the map) instead of inventing a process.

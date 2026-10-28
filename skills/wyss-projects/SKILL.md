@@ -1,9 +1,9 @@
 ---
-name: wyss-apps
+name: wyss-projects
 description: Look up Wyss Institute projects (sponsored grants from GMAS and internal Wyss projects), who maintains them, their status, sponsors, timelines and, where the person is allowed, dollar amounts, plus the payroll costing-change queue, through the Wyss Apps MCP server. Use whenever someone asks about a Wyss project, grant, PI, fund number, GMAS id, Director's Fund project, or costing change, or asks what they can see in Wyss Apps.
 ---
 
-# Wyss Apps
+# Wyss projects, grants, science and people (Wyss Apps)
 
 Wyss Apps (`https://wigt.med.harvard.edu`) is the Wyss Institute's internal record of projects,
 accounts and people. The `wyss-apps` MCP server exposes a read-only slice of it, **as the person
@@ -23,7 +23,7 @@ super user can grant it on their Wyss Apps account.
 | `search_people` | The Wyss directory (needs the Involvement tool): name, title, Wyss role, email, profile text, skills, and the projects they are on that the person can see. No HR, pay or effort data. |
 | `faculty_view` | A faculty member's or PI's sponsored-project record by fiscal year: submitted / awarded / declined counts and dollars, success rate per year, time to award, by sponsor, funding source, Grand Challenge and platform, active portfolio, pipeline, new-money requests. Definitions in the `wyss-metrics` skill. |
 | `sponsored_project_lookup` | One grant, everything: GMAS record and classification, funding timeline (requests, award revisions), accounts, spend by fiscal year, burndown with burn and runway, who is costed to it, and ready-made highlights. By id, fund number, GMAS id or name. |
-| `wyss_guide` | The guides, one topic per call: `intranet` (how-do-I and policy questions, answered from the Wyss SharePoint through the person's Microsoft 365 connector), `style` (vocabulary and document style; **call before writing any report, summary, email or slide**), `metrics` (what every metric means; call before quoting numbers), `costing_changes`, `using_wyss_apps`. They are the same text as this plugin's skills, so Claude gets them without the plugin. |
+| `wyss_guide` | The guides, one topic per call: `intranet` (how-do-I and policy questions, answered from the Wyss SharePoint through the person's Microsoft 365 connector), `style` (vocabulary and document style; **call before writing any report, summary, email or slide**), `metrics` (what every metric means; call before quoting numbers), `costing_changes`, `projects`. They are the same text as this plugin's skills, so Claude gets them without the plugin. |
 | `list_costing_changes` | The payroll costing-change queue (needs the Costing Changes tool). Filter by `status` list and `search` (employee, HUID, requester, id). No salary or pay-rate data exists in these payloads. |
 
 ## Vocabulary

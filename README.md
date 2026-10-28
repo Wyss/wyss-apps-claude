@@ -45,8 +45,8 @@ claude mcp add --transport http wyss-apps https://wigt.med.harvard.edu/mcp --hea
 ## The skills (optional, recommended for regular users)
 
 This plugin's `skills/` teach Claude the Wyss vocabulary and how to work the tools:
-`wyss-apps` (projects, the science search, people), `wyss-style` (the shared Wyss language and
-document style for every report, email or slide), and `costing-changes` (the payroll
+`wyss-projects` (projects, grants, the science search, people), `wyss-style` (the shared Wyss language and
+document style for every report, email or slide), and `wyss-costing-changes` (the payroll
 costing-change queue, for Beth and the finance managers). The style guide is also served by the
 `wyss_guide` (topic style) tool, so Claude gets it even without the plugin.
 

@@ -1,5 +1,5 @@
 ---
-name: costing-changes
+name: wyss-costing-changes
 description: Work the Wyss payroll costing-change queue in Wyss Apps through the wyss-apps MCP server: what is pending, what is ready for PeopleSoft, why a request needs review, what the before/after distribution is, and the exact fill spec to key into PeopleSoft. Use when someone asks about costing changes, a pending costing request, re-costing someone's payroll, the PeopleSoft entry queue, or Beth's queue.
 ---
 

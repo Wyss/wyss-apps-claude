@@ -1,5 +1,10 @@
 # Changes
 
+## 0.3.1 (2026-10-27)
+- Skill names say what they cover: `wyss-projects` (was `wyss-apps`: projects, grants, science,
+  people), `wyss-costing-changes` (was `costing-changes`), alongside `wyss-metrics`, `wyss-style`,
+  `wyss-intranet`. Guide topic `using_wyss_apps` is now `projects`.
+
 ## 0.3.0 (2026-10-27)
 - One server everywhere: `.mcp.json` now declares only `wyss-apps`, the local bash bridge. The
   http entry with `${user_config.wyss_apps_token}` is gone: Cowork never asked for the value and
