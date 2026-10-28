@@ -14,8 +14,10 @@ things are done. Use both: process from the intranet, facts from Wyss Apps.
 
 ## How to look things up
 
-1. **Search the site first.** Use the Microsoft 365 search tool with the question's own words and,
-   when the tool allows it, scope to the `wyss` site. Pages (`SitePages/*.aspx`) carry the
+1. **Search the site first.** Use the Microsoft 365 connector's *search* tool (the one that searches
+   SharePoint and OneDrive files and pages) with the question's own words, adding "Wyss" when the
+   results drift to other Harvard sites. Never build a `site:///` or `page:///` URI by hand from the
+   web address: those need Graph ids, which only the search results carry. Pages (`SitePages/*.aspx`) carry the
    current process text; document libraries carry the forms, policies and templates (Word, PDF,
    Excel). Prefer a page over a stray document, and a document in a library named for the topic
    (HR, Finance, EHS…) over one in a personal folder.
