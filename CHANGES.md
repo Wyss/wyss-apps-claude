@@ -1,5 +1,17 @@
 # Changes
 
+## 0.5.2 (2026-10-28)
+- Results first. Every skill now checks the setup silently before its first answer (`whoami`;
+  Claude in Chrome for costing changes; Microsoft 365 for intranet and calendar) and, when
+  something is missing, says the one thing to fix and stops. New `wyss-setup` skill ("check my
+  setup", "is this working") reports the three checks and what the person can ask.
+- Costing changes speak in work words only (waiting to be keyed, filled and waiting for your
+  Save, saved, done and filed, skipped because): no statuses, tool names or ids. A run resumes
+  the person's own unfinished work (filled but unsaved, or started) instead of answering
+  "nothing ready", re-queues a filled row whose tab was lost, and after Save files the backup
+  itself: a screenshot of the saved page uploaded to the request (PDF by Ctrl+P only as the
+  fallback). The person signs in and clicks Save; nothing else.
+
 ## 0.5.1 (2026-10-28)
 - `wyss-costing-changes` is now a run, not a tour: "run the costing changes" claims every ready
   request, opens each Department Budget Earnings page by direct URL in the person's own Chrome

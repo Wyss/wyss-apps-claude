@@ -11,6 +11,16 @@ whose token is connected**: tool access and per-project permissions are the same
 A "no access" answer is a permission, not a bug; tell the person which tool they lack and that a
 super user can grant it on their Wyss Apps account.
 
+## Before anything (silent when it passes)
+
+Call `whoami` once per session before the first answer. If it answers, say nothing about setup
+and do the work. If it fails, its message already says the one thing to do (missing token,
+expired token, not on the VPN, account without access): repeat that sentence and stop. If the
+Wyss Apps tools are missing altogether, the plugin is not enabled for this chat: say so with the
+link `https://github.com/Wyss/wyss-apps-claude` (Cowork: Customize, Plugins).
+The person does not need to know Wyss Apps: no tool names, no permission talk beyond "you do
+not have access to <thing>; ask Matthew Laubach". Lead with the result.
+
 ## Tools
 
 | Tool | Use it for |

@@ -10,6 +10,18 @@ dumped: short sections, the numbers that matter, the open questions, nothing the
 see in Wyss Apps. Read `wyss_guide(topic: "style")` once per session before writing, and
 `wyss_guide(topic: "metrics")` before quoting dollars or rates.
 
+## Before anything (silent when it passes)
+
+Call `whoami` once per session before the first answer. If it answers, say nothing about setup
+and do the work. If it fails, its message already says the one thing to do (missing token,
+expired token, not on the VPN, account without access): repeat that sentence and stop. If the
+Wyss Apps tools are missing altogether, the plugin is not enabled for this chat: say so with the
+link `https://github.com/Wyss/wyss-apps-claude` (Cowork: Customize, Plugins). If the Microsoft
+365 connector is missing, say one line ("Connect Microsoft 365 in Claude, Settings, Connectors,
+for calendar and intranet context") and write the brief without it.
+The person does not need to know Wyss Apps: no tool names, no permission talk beyond "you do
+not have access to <thing>; ask Matthew Laubach". Lead with the result.
+
 ## Which brief
 
 | Ask | Shape | Tools |

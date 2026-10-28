@@ -51,6 +51,9 @@ with the plugin, nothing to install separately:
 - `wyss-metrics`: how every metric is defined and which tool answers which question.
 - `wyss-style`: the shared Wyss language and document style for every report, email or slide.
 - `wyss-briefs`: one-page briefs for a meeting, a faculty member, a project or a grant.
+- `wyss-setup`: "check my setup" / "is this working": token, tool access, Claude in Chrome and
+  Microsoft 365, each with its one fix, then what the person can ask. Every other skill runs the
+  same check silently before its first answer.
 - `wyss-intranet`: administrative "how do I" questions from the Wyss intranet (SharePoint)
   through the Microsoft 365 connector.
 - `wyss-costing-changes`: "run the costing changes" keys every ready request into PeopleSoft in
@@ -58,7 +61,7 @@ with the plugin, nothing to install separately:
   stops at Save for their review; after Save it records the submission and files the backup PDF.
 
 Each guide is also served by the `wyss_guide` tool (topics `projects`, `metrics`, `style`,
-`briefs`, `intranet`, `costing_changes`), so Claude gets it even from a bare MCP connection.
+`briefs`, `intranet`, `costing_changes`, `setup`), so Claude gets it even from a bare MCP connection.
 
 ## If something fails
 
