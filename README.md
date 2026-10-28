@@ -35,8 +35,8 @@ With the plugin installed (`claude plugin marketplace add Wyss/wyss-apps-claude`
 `claude plugin install wyss-apps@wyss-apps-claude --scope user`) Claude Code uses the same local
 bridge and the same token file, nothing else to configure. Type `/mcp` to check the connection.
 
-Not using the plugin (or on Windows, where the bridge's bash is missing)? Paste the one-line command
-shown on the Claude access page instead; it carries your token:
+Not using the plugin? Paste the one-line command shown on the Claude access page instead; it
+carries your token:
 
 ```bash
 claude mcp add --transport http wyss-apps https://wigt.med.harvard.edu/mcp --header "Authorization: Bearer wyss_…"
@@ -85,8 +85,10 @@ same connection as a local server that Cowork runs on your Mac:
 3. In Claude: **Customize → Plugins → Add → Add marketplace**, paste `https://github.com/Wyss/wyss-apps-claude`, install **wyss-apps**, enable it.
 4. Start a Cowork task **on your computer** and ask Claude to call `whoami`.
 
-The bridge is `bridge/wyss-apps-bridge.sh` (bash + curl, nothing to install); it reads the token
-and URL on every request, so replacing the token file needs no restart. The same file works in
+The bridge is `bridge/wyss-apps-bridge.sh` (bash + curl, nothing to install) on a Mac and
+`bridge/wyss-apps-bridge.ps1` (PowerShell, nothing to install) on Windows; both read the token
+and URL on every request, so replacing the token file needs no restart. On Windows the token file
+is `%USERPROFILE%\.wyss-apps\token`, written with the PowerShell line in the setup prompt. The same file works in
 `claude_desktop_config.json` for Claude Desktop chat:
 
 ```json

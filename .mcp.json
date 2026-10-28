@@ -2,5 +2,9 @@
   "wyss-apps": {
     "command": "bash",
     "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/wyss-apps-bridge.sh"]
+  },
+  "wyss-apps-win": {
+    "command": "powershell",
+    "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PLUGIN_ROOT}/bridge/wyss-apps-bridge.ps1"]
   }
 }

@@ -1,5 +1,10 @@
 # Changes
 
+## 0.3.2 (2026-10-27)
+- Windows: a second server, `wyss-apps-win`, runs `bridge/wyss-apps-bridge.ps1` with PowerShell
+  (token and URL read per request, like the bash bridge). Plugin manifests cannot choose a command
+  per platform, so each machine starts the one that fits and the other fails quietly.
+
 ## 0.3.1 (2026-10-27)
 - Skill names say what they cover: `wyss-projects` (was `wyss-apps`: projects, grants, science,
   people), `wyss-costing-changes` (was `costing-changes`), alongside `wyss-metrics`, `wyss-style`,
