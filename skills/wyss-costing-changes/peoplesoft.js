@@ -1,0 +1,214 @@
+// Wyss Apps for Claude: PeopleSoft "Department Budget Earnings" helpers.
+// Runs in the person's own Chrome through Claude in Chrome's JavaScript tool,
+// on the page opened by the direct URL. Everything is read or set by element
+// id (Beth's page map, 2026-10-27). Nothing here clicks Save.
+//
+// Usage from the skill: evaluate this whole file once per tab, then call
+//   WYSS.probe()                      -> what the page looks like (ids found, rows, state)
+//   WYSS.readPage()                   -> the costing shown now (inputs or spans), as the readback
+//   WYSS.checkBefore(spec)            -> [] when the page's current lines equal spec.current_costing
+//   await WYSS.fill(spec)             -> adds the effective-dated row and keys every line; returns the readback
+//   WYSS.verify(spec, readback)       -> [] when the readback equals the spec (same rules as the server)
+//   WYSS.cancel()                     -> clicks Cancel (rehearsal only; never Save)
+//   WYSS.saved(spec)                  -> true when the page shows the row saved
+// Pay rates on the page are never read.
+
+var WYSS = (function () {
+  var F = 'HU_DEPBUDERN_VW_';
+  var SEG = { tub: 'FUND_CODE', org: 'OPERATING_UNIT', fund: 'PROJECT_ID', activity: 'PRODUCT',
+              subactivity: 'PROGRAM_CODE', root: 'CLASS_FLD', pct: 'DIST_PCT' };
+  var OBJECT = 'ACCOUNT';
+  var EFFDT = 'HU_DPTBGT_VW_EFFDT$0', EFFSEQ = 'HU_DPTBGT_VW_EFFSEQ$0', STATUS = 'HU_DPTBGT_VW_EFF_STATUS$0';
+  var EMPLID = 'HU_POSINCUM_DRV_EMPLID$0', EMPLRCD = 'HU_POSINCUM_DRV_EMPL_RCD$0';
+  var ADD_ROW = '$ICField16$new$0$$0';
+  var SAVE = 'HU_DPBUDERN_WRK_SAVE_BTN', CANCEL = 'HU_DPBUDERN_WRK_HOME_BUTTON';
+
+  function doc() {
+    // The classic page lives in the TargetContent iframe when opened through the portal (/psp/);
+    // opened through /psc/ it is the top document.
+    var f = document.getElementById('ptifrmtgtframe') || document.querySelector('iframe[name="TargetContent"]');
+    try { if (f && f.contentDocument && f.contentDocument.getElementById(EMPLID)) return f.contentDocument; } catch (e) {}
+    return document;
+  }
+  function el(id) { return doc().getElementById(id); }
+  function text(id) { var e = el(id); if (!e) return null; var v = ('value' in e && e.tagName !== 'SPAN') ? e.value : e.textContent; return (v || '').trim(); }
+  function isInput(id) { var e = el(id); return !!e && (e.tagName === 'INPUT' || e.tagName === 'SELECT' || e.tagName === 'TEXTAREA'); }
+  function lineCount() { var n = 0; while (el(F + SEG.pct + '$' + n)) n++; return n; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function toUS(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); return m ? m[2] + '/' + m[3] + '/' + m[1] : iso; }
+  function toISO(us) { var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(us); return m ? m[3] + '-' + pad(+m[1]) + '-' + pad(+m[2]) : us; }
+  function pct3(v) { var n = parseFloat(String(v).replace(/[^\d.\-]/g, '')); return isNaN(n) ? '' : n.toFixed(3); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // PeopleSoft refreshes the page after most field changes. Wait until the
+  // processing indicator is gone and the DOM has been stable for a moment.
+  async function idle(maxMs) {
+    var start = Date.now(), last = null, stableSince = Date.now();
+    while (Date.now() - start < (maxMs || 15000)) {
+      var d = doc();
+      var wait = d.getElementById('WAIT_win0') || d.getElementById('processing');
+      var busy = wait && wait.offsetParent !== null && getComputedStyle(wait).visibility !== 'hidden';
+      var sig = d.body ? d.body.innerHTML.length + ':' + lineCount() : '';
+      if (sig !== last) { last = sig; stableSince = Date.now(); }
+      if (!busy && Date.now() - stableSince > 400) return true;
+      await sleep(150);
+    }
+    return false;
+  }
+
+  function fire(e, type) { e.dispatchEvent(new Event(type, { bubbles: true })); }
+
+  // Set one input the way a person would: focus, type, tab out (change + blur), then wait for the refresh.
+  async function setField(id, value) {
+    var e = el(id);
+    if (!e) throw new Error('missing field ' + id);
+    if (e.tagName !== 'INPUT' && e.tagName !== 'SELECT') throw new Error(id + ' is not editable (' + e.tagName + ')');
+    e.focus();
+    e.value = value;
+    fire(e, 'input'); fire(e, 'change'); fire(e, 'blur');
+    await idle();
+    var now = text(id);
+    if (e.tagName === 'INPUT' && now !== value) throw new Error(id + ' shows ' + JSON.stringify(now) + ' after setting ' + JSON.stringify(value));
+    return now;
+  }
+
+  async function click(id) {
+    var e = el(id);
+    if (!e) throw new Error('missing control ' + id);
+    e.click();
+    await idle();
+  }
+
+  function errorsOnPage() {
+    var d = doc(), out = [];
+    var alert = d.querySelector('#alertmsg, .PSERRORTEXT, .ps_error, [id^="win0divPSERROR"]');
+    if (alert && alert.textContent.trim()) out.push(alert.textContent.trim().slice(0, 300));
+    d.querySelectorAll('.PSERROR, input.PSERROR, .psc_error').forEach(function (x) { out.push((x.id || x.className) + ' flagged'); });
+    return out;
+  }
+
+  function totalShown() {
+    var d = doc();
+    var lab = Array.prototype.find.call(d.querySelectorAll('span, label, td, div'), function (x) { return /Distribution Total/i.test(x.textContent) && x.children.length < 3; });
+    if (!lab) return null;
+    var m = /Distribution Total[^\d\-]*([\d.,\-]+)/i.exec(lab.parentElement ? lab.parentElement.textContent : lab.textContent);
+    return m ? pct3(m[1]) : null;
+  }
+
+  function readLines() {
+    var lines = [], n = lineCount();
+    for (var i = 0; i < n; i++) {
+      var seg = {};
+      Object.keys(SEG).forEach(function (k) { seg[k] = text(F + SEG[k] + '$' + i); });
+      seg.object = text(F + OBJECT + '$' + i);
+      lines.push({ coa: [seg.tub, seg.org, seg.object, seg.fund, seg.activity, seg.subactivity, seg.root].join('.'), pct: pct3(seg.pct), editable: isInput(F + SEG.pct + '$' + i) });
+    }
+    return lines;
+  }
+
+  function readPage() {
+    var lines = readLines();
+    var sum = lines.reduce(function (a, l) { return a + (parseFloat(l.pct) || 0); }, 0);
+    return {
+      empl_id: text(EMPLID), empl_rcd: parseInt(text(EMPLRCD), 10),
+      effective_date: toISO(text(EFFDT)), eff_seq: parseInt(text(EFFSEQ) || '0', 10), status: text(STATUS),
+      distributions: lines.map(function (l) { return { coa: l.coa, pct: l.pct }; }),
+      total: totalShown() || sum.toFixed(3),
+      editable: lines.length > 0 && lines.every(function (l) { return l.editable; }),
+      errors: errorsOnPage()
+    };
+  }
+
+  function probe() {
+    var d = doc();
+    var ids = {};
+    [EFFDT, EFFSEQ, STATUS, EMPLID, EMPLRCD, ADD_ROW, SAVE, CANCEL, F + SEG.pct + '$0', F + OBJECT + '$0'].forEach(function (id) { var e = el(id); ids[id] = e ? e.tagName + (isInput(id) ? ' (input)' : '') : null; });
+    var rowButtons = Array.prototype.map.call(d.querySelectorAll('[id*="$new$"], [id*="$delete$"]'), function (e) { return e.id; });
+    return { frame: d === document ? 'top' : 'TargetContent', url: (d.location || {}).href, signIn: /HarvardKey|login|Sign In/i.test(d.title + ' ' + (d.body ? d.body.textContent.slice(0, 2000) : '')),
+             ids: ids, lineCount: lineCount(), rowButtons: rowButtons.slice(0, 20), page: readPage() };
+  }
+
+  function sortedLines(list) { return (list || []).map(function (l) { return l.coa.trim() + '|' + pct3(l.pct); }).sort(); }
+
+  function checkBefore(spec) {
+    var out = [], page = readPage();
+    if (page.empl_id !== String(spec.empl_id)) out.push('empl_id: page ' + page.empl_id + ', spec ' + spec.empl_id);
+    if (spec.empl_rcd !== undefined && page.empl_rcd !== parseInt(spec.empl_rcd, 10)) out.push('empl_rcd: page ' + page.empl_rcd + ', spec ' + spec.empl_rcd);
+    var want = sortedLines((spec.current_costing || {}).lines), have = sortedLines(page.distributions);
+    if (JSON.stringify(want) !== JSON.stringify(have)) out.push('current lines: page ' + JSON.stringify(have) + ', spec ' + JSON.stringify(want));
+    if (page.editable) out.push('the page already has an unsaved editable row (someone started it); do not add another');
+    return out;
+  }
+
+  function verify(spec, rb) {
+    var out = [];
+    if (String(rb.empl_id) !== String(spec.empl_id)) out.push('empl_id');
+    if (rb.effective_date !== spec.effective_date) out.push('effective_date: page ' + rb.effective_date + ', spec ' + spec.effective_date);
+    if (Math.abs(parseFloat(rb.total) - 100) > 0.001) out.push('total ' + rb.total);
+    var want = sortedLines(spec.distributions), have = sortedLines(rb.distributions);
+    if (JSON.stringify(want) !== JSON.stringify(have)) out.push('distributions: page ' + JSON.stringify(have) + ', spec ' + JSON.stringify(want));
+    if (rb.errors && rb.errors.length) out.push('page errors: ' + rb.errors.join('; '));
+    return out;
+  }
+
+  // Row controls at the end of each line: the "+" inserts a line below, the "−" deletes it.
+  function lineButton(kind, i) {
+    var d = doc();
+    var cands = Array.prototype.filter.call(d.querySelectorAll('[id*="$' + kind + '$"]'), function (e) { return e.id !== ADD_ROW && new RegExp('\\$' + kind + '\\$' + i + '\\$').test(e.id); });
+    return cands[0] || null;
+  }
+
+  async function setLine(i, d) {
+    var order = ['tub', 'org', 'fund', 'activity', 'subactivity', 'root', 'pct'];
+    for (var k = 0; k < order.length; k++) {
+      var key = order[k], id = F + SEG[key] + '$' + i;
+      var value = key === 'pct' ? pct3(d.pct) : String(d[key]);
+      if (text(id) === value) continue;
+      await setField(id, value);
+    }
+  }
+
+  // Add the effective-dated row and make the lines equal the spec. Returns the readback.
+  async function fill(spec) {
+    if (spec.version !== 2) throw new Error('fill spec version ' + spec.version + ' not supported');
+    var before = checkBefore(spec);
+    if (before.length) throw new Error('before check failed: ' + before.join('; '));
+    await click(ADD_ROW);
+    if (!isInput(EFFDT)) throw new Error('no editable Effective Date after "+"');
+    await setField(EFFDT, toUS(spec.effective_date));
+    var want = spec.distributions;
+    // Shrink or grow the grid to the right number of lines first.
+    while (lineCount() > want.length) {
+      var minus = lineButton('delete', lineCount() - 1);
+      if (!minus) throw new Error('cannot find the delete control on line ' + (lineCount() - 1));
+      minus.click(); await idle();
+    }
+    while (lineCount() < want.length) {
+      var plus = lineButton('new', lineCount() - 1);
+      if (!plus) throw new Error('cannot find the add-line control on line ' + (lineCount() - 1));
+      plus.click(); await idle();
+    }
+    for (var i = 0; i < want.length; i++) await setLine(i, want[i]);
+    await idle(5000);
+    var rb = readPage();
+    var problems = verify(spec, rb);
+    if (problems.length) throw new Error('filled page does not match: ' + problems.join('; '));
+    return rb;
+  }
+
+  async function cancel() { await click(CANCEL); return readPage(); }
+
+  // After the person clicks Save. PeopleSoft keeps the row editable in update
+  // mode, so "editable" alone proves nothing: the SAVED_win0 flash is the
+  // strong signal; without it, reopen the direct URL and read the top row.
+  function saved(spec) {
+    var page = readPage();
+    var flag = el('SAVED_win0');
+    var banner = !!flag && flag.offsetParent !== null;
+    var matches = page.effective_date === spec.effective_date && verify(spec, page).length === 0;
+    return { saved: matches && banner, matches: matches, banner: banner, editable: page.editable, page: page };
+  }
+
+  return { probe: probe, readPage: readPage, checkBefore: checkBefore, fill: fill, verify: verify, cancel: cancel, saved: saved, ids: { SAVE: SAVE, CANCEL: CANCEL, ADD_ROW: ADD_ROW } };
+})();
+'ok';

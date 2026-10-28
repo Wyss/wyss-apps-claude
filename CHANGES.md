@@ -1,5 +1,21 @@
 # Changes
 
+## 0.6.0 (2026-10-28)
+- Scripted PeopleSoft fill: `skills/wyss-costing-changes/peoplesoft.js` (loaded into the tab
+  through Claude in Chrome) probes the page, checks the before, adds the effective-dated row,
+  keys every line waiting for each refresh, reads the page back and verifies it against the
+  spec with the server's rules. Field-by-field keying stays as the fallback, and a script failure
+  is recorded on the request as a rehearsal note without bothering the person.
+- "Rehearse the costing changes": fill, read back, Cancel (never Save), record the comparison
+  with `rehearse_costing_change`; for proving the script on a new machine.
+- After Save: one upload closes the request. The tools return `backup_upload_url`, a signed
+  page that needs no Wyss Apps sign-in; the skill uploads the screenshot of the saved page
+  there (`#backup-file`, `#attach-backup`, `#backup-filed`), which records the save and files
+  the backup. Then it closes the finished tabs and leaves one PeopleSoft tab on the Costing
+  search page for the next change.
+- Hourly scheduled runs: "Nothing waiting." is the whole answer when there is nothing to do;
+  the Duo sign-in nudge is expected on most runs.
+
 ## 0.5.2 (2026-10-28)
 - Results first. Every skill now checks the setup silently before its first answer (`whoami`;
   Claude in Chrome for costing changes; Microsoft 365 for intranet and calendar) and, when
