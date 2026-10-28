@@ -12,7 +12,7 @@
       "name": "wyss-apps",
       "source": "./",
       "description": "Wyss Apps for Claude",
-      "version": "0.4.1",
+      "version": "0.5.0",
       "category": "productivity"
     }
   ]

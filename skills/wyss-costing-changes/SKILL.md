@@ -23,7 +23,7 @@ it). The first two tools are read-only; the rest change a request's status (neve
 | `claim_costing_change` | Take a ready request before keying it (2-hour claim, renewable). Refused on blackout days or when someone else holds it. `confirm: true` after the person agrees. |
 | `mark_costing_change_staged` | The PeopleSoft page is filled, not saved: record it with a readback of what the page shows. A mismatch sends it to needs review. |
 | `mark_costing_change_submitted` | The person has pressed Save in PeopleSoft: record it with what the page showed. Sends the confirmation email. |
-| `file_costing_change_backup` | The backup PDF is filed: record the link and close the request. |
+| `file_costing_change_backup` | Only for a backup kept elsewhere: record its link and close the request. The normal backup is attached on the request page in Wyss Apps. |
 | `report_costing_change_error` | Anything went wrong (page changed, employee not found, session expired): mark it error with a message. No confirm needed. |
 | `review_costing_change` | Reviewer decisions: `mark_ready`, `send_back` (note), `cancel` (note), with the review page's rules. |
 
@@ -41,7 +41,7 @@ confirm. The person acts under their own name (the history shows `user:<id>`).
 | `claimed` | Someone is keying it now (claim expires after 2 h) | → staged |
 | `staged` | Filled in PeopleSoft, waiting for Beth to press Save | Beth |
 | `submitted` | Saved in PeopleSoft (reported, or confirmed when the PeopleSoft→SharePoint sync cleared the Pending flag) | → backup_filed |
-| `backup_filed` | Backup PDF filed; done | |
+| `backup_filed` | Backup (the saved page as PDF) attached to the request in Wyss Apps; done | |
 | `needs_review` | Validation errors, the source rows were edited mid-flight, a readback mismatch, or sent back by a reviewer | The finance manager who typed it, or a reviewer |
 | `error` | The plugin hit a problem (page changed, session expired) | A reviewer re-prepares or sends back |
 | `cancelled` | Rows disappeared from SharePoint, or cancelled on the review page | |
@@ -71,6 +71,10 @@ request's Pending flag, whatever the status says.
 The person keys changes in PeopleSoft in their own browser, signed in with their own HarvardKey
 and Duo; Claude fills, the person saves. One request at a time.
 
+0. **Open Wyss Apps beside the chat.** In the person's browser (Claude in Chrome) open the
+   Costing Changes tool, `https://wigt.med.harvard.edu/tools/costing_changes`, in its own tab and
+   leave it open: the person follows the queue there while the work happens in the chat. When a
+   request is picked, open its `url` (the request page) in that tab.
 1. **Pick up the work.** `list_costing_changes` with `status: ["ready"]`. If `payroll_blackout`
    is set, stop and say when the next payday is. Otherwise show the list (employee, effective
    date, warnings) and let the person choose one, or take the oldest.
@@ -93,8 +97,14 @@ and Duo; Claude fills, the person saves. One request at a time.
    and press Save; tell me when it is done." Do not press Save yourself.
 8. **Submitted.** When they say it is saved, `mark_costing_change_submitted` with what the page
    shows after Save (any transaction id, timestamps, message). The confirmation email goes out.
-9. **Backup.** When the backup PDF is filed in the SharePoint library, `file_costing_change_backup`
-   with its link. The request is complete; the overnight sync confirms it independently.
+9. **Backup.** The backup is the saved PeopleSoft page printed to PDF. Ask the person to press
+   Ctrl+P (Cmd+P on a Mac) on the saved page, choose "Save as PDF" and save it (Downloads is
+   fine); or do it for them if the browser lets you. Then open the request's `url` in Wyss Apps,
+   choose that file under "Backup: the saved PeopleSoft page printed to PDF" (Claude in Chrome can
+   pick the file from Downloads) and click "Attach backup and complete". Wyss Apps keeps the file
+   on the row (a "backup PDF" link in the queue) and closes the request as `backup_filed`. Only if
+   the backup must live elsewhere, `file_costing_change_backup` records a link instead. The
+   overnight sync confirms the change independently.
 10. Next request: back to step 1. Claims expire after two hours; renew by claiming again.
 
 ## What Claude can and cannot do here

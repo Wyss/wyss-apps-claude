@@ -42,18 +42,22 @@ carries your token:
 claude mcp add --transport http wyss-apps https://wigt.med.harvard.edu/mcp --header "Authorization: Bearer wyss_…"
 ```
 
-## The skills (optional, recommended for regular users)
+## The skills
 
-This plugin's `skills/` teach Claude the Wyss vocabulary and how to work the tools:
-`wyss-projects` (projects, grants, the science search, people), `wyss-style` (the shared Wyss language and
-document style for every report, email or slide), and `wyss-costing-changes` (the payroll
-costing-change queue, for Beth and the finance managers). The style guide is also served by the
-`wyss_guide` (topic style) tool, so Claude gets it even without the plugin.
+The plugin's `skills/` teach Claude the Wyss vocabulary and how to work the tools; they load
+with the plugin, nothing to install separately:
 
-- Claude Desktop / claude.ai / Cowork: download **the Wyss Apps skills** (`wyss-apps-plugin.zip`)
-  from the Claude access page and add them under **Customize → Plugins → Add → upload**.
-  The data connection still comes from the extension above.
-- Claude Code: install from the marketplace (above); the plugin reads the token file.
+- `wyss-projects`: projects, grants, the science search, people.
+- `wyss-metrics`: how every metric is defined and which tool answers which question.
+- `wyss-style`: the shared Wyss language and document style for every report, email or slide.
+- `wyss-briefs`: one-page briefs for a meeting, a faculty member, a project or a grant.
+- `wyss-intranet`: administrative "how do I" questions from the Wyss intranet (SharePoint)
+  through the Microsoft 365 connector.
+- `wyss-costing-changes`: the payroll costing-change queue end to end (for Beth and the finance
+  managers), with Claude in Chrome on the PeopleSoft page.
+
+Each guide is also served by the `wyss_guide` tool (topics `projects`, `metrics`, `style`,
+`briefs`, `intranet`, `costing_changes`), so Claude gets it even from a bare MCP connection.
 
 ## If something fails
 
@@ -73,8 +77,7 @@ Questions: matthew.laubach@wyss.harvard.edu
 Your Claude organisation has an extension allow-list on. Use the plugin instead; it carries the
 same connection as a local server that Cowork runs on your Mac:
 
-1. On the Claude access page, create a token, then download **the Wyss Apps skills**
-   (`wyss-apps-plugin.zip`).
+1. On the Claude access page, create a token and copy it.
 2. Save the token in a file: open Terminal (Spotlight → "Terminal"), paste this and press
    Return (your token is still in the clipboard from step 1):
 

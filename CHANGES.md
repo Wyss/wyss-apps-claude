@@ -1,5 +1,14 @@
 # Changes
 
+## 0.5.0 (2026-10-28)
+- The backup of a costing change is the saved PeopleSoft page printed to PDF, attached on the
+  request page in Wyss Apps ("Attach backup and complete"), which closes the request; the queue
+  shows a "backup PDF" link on the row. `file_costing_change_backup` is only for a backup kept
+  elsewhere. The skill opens the Costing Changes tool in the person's browser first and keeps
+  it beside the chat.
+- New skill `wyss-briefs`: one-page briefs for a meeting, a faculty member, a project or a grant
+  (`wyss_guide(topic: "briefs")`).
+
 ## 0.4.1 (2026-10-28)
 - Windows bridge hardened for Windows PowerShell 5.1: no progress bar on the output pipe, TLS 1.2
   forced on, UTF-8 without a byte-order mark on stdin/stdout. Exercised end to end under
