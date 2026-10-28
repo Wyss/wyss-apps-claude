@@ -1,5 +1,13 @@
 # Changes
 
+## 0.5.1 (2026-10-28)
+- `wyss-costing-changes` is now a run, not a tour: "run the costing changes" claims every ready
+  request, opens each Department Budget Earnings page by direct URL in the person's own Chrome
+  (Claude in Chrome only; Duo cannot complete in Cowork's built-in browser), checks the before,
+  keys the new row field by field (page ids from Beth's page map), stages it, and speaks only to
+  hand over for Save and to report. After "done" it records the submissions, asks for the
+  Ctrl+P PDFs, attaches them on the request pages and closes the requests.
+
 ## 0.5.0 (2026-10-28)
 - The backup of a costing change is the saved PeopleSoft page printed to PDF, attached on the
   request page in Wyss Apps ("Attach backup and complete"), which closes the request; the queue

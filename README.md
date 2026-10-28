@@ -53,8 +53,9 @@ with the plugin, nothing to install separately:
 - `wyss-briefs`: one-page briefs for a meeting, a faculty member, a project or a grant.
 - `wyss-intranet`: administrative "how do I" questions from the Wyss intranet (SharePoint)
   through the Microsoft 365 connector.
-- `wyss-costing-changes`: the payroll costing-change queue end to end (for Beth and the finance
-  managers), with Claude in Chrome on the PeopleSoft page.
+- `wyss-costing-changes`: "run the costing changes" keys every ready request into PeopleSoft in
+  the person's own Chrome (Claude in Chrome; Duo does not work in Cowork's built-in browser) and
+  stops at Save for their review; after Save it records the submission and files the backup PDF.
 
 Each guide is also served by the `wyss_guide` tool (topics `projects`, `metrics`, `style`,
 `briefs`, `intranet`, `costing_changes`), so Claude gets it even from a bare MCP connection.
