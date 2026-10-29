@@ -8,16 +8,18 @@ description: Look up Wyss Institute projects (sponsored grants from GMAS and int
 Wyss Apps (`https://wigt.med.harvard.edu`) is the Wyss Institute's internal record of projects,
 accounts and people. The `wyss-apps` MCP server exposes a read-only slice of it, **as the person
 whose token is connected**: tool access and per-project permissions are the same as on the website.
-A "no access" answer is a permission, not a bug; tell the person which tool they lack and that a
-super user can grant it on their Wyss Apps account.
+A "no access" answer is a permission, not a bug; tell the person what they cannot see and that
+Matthew Laubach can grant it on their Wyss Apps account.
 
 ## Before anything (silent when it passes)
 
 Call `whoami` once per session before the first answer. If it answers, say nothing about setup
 and do the work. If `whoami` answers with `plugin.update_available` true, add one line, its `plugin.update` text, and go on. If it fails, its message already says the one thing to do (missing token,
 expired token, not on the VPN, account without access): repeat that sentence and stop. If the
-Wyss Apps tools are missing altogether, the plugin is not enabled for this chat: say so with the
-link `https://github.com/Wyss/wyss-apps-claude` (Cowork: Customize, Plugins).
+Wyss Apps tools are missing altogether, say both causes and stop: this Cowork session may be
+running in the cloud, where the plugin cannot run (Settings, Cowork, turn off "Run new tasks in
+the cloud", then start a new session), or the plugin is not enabled for this chat (Customize,
+Plugins, add `https://github.com/Wyss/wyss-apps-claude` and enable it).
 The person does not need to know Wyss Apps: no tool names, no permission talk beyond "you do
 not have access to <thing>; ask Matthew Laubach". Lead with the result.
 
@@ -33,7 +35,7 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
 | `search_people` | The Wyss directory (needs the Involvement tool): name, title, Wyss role, email, profile text, skills, and the projects they are on that the person can see. No HR, pay or effort data. |
 | `faculty_view` | A faculty member's or PI's sponsored-project record by fiscal year: submitted / awarded / declined counts and dollars, success rate per year, time to award, by sponsor, funding source, Grand Challenge and platform, active portfolio, pipeline, new-money requests. Definitions in the `wyss-metrics` skill. |
 | `sponsored_project_lookup` | One grant, everything: GMAS record and classification, funding timeline (requests, award revisions), accounts, spend by fiscal year, burndown with burn and runway, who is costed to it, and ready-made highlights. By id, fund number, GMAS id or name. |
-| `wyss_guide` | The guides, one topic per call: `intranet` (how-do-I and policy questions, answered from the Wyss SharePoint through the person's Microsoft 365 connector), `style` (vocabulary and document style; **call before writing any report, summary, email or slide**), `metrics` (what every metric means; call before quoting numbers), `costing_changes`, `projects`. They are the same text as this plugin's skills, so Claude gets them without the plugin. |
+| `wyss_guide` | The guides, one topic per call: `style` (vocabulary and document style; **call before writing any report, summary, email or slide**), `metrics` (what every metric means; call before quoting numbers), `costing_changes`, `projects`. They are the same text as this plugin's skills, so Claude gets them without the plugin. |
 | `list_costing_changes` | The payroll costing-change queue (needs the Costing Changes tool). Filter by `status` list and `search` (employee, HUID, requester, id). No salary or pay-rate data exists in these payloads. |
 
 ## Vocabulary
@@ -85,9 +87,9 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
 
 ## Connection problems
 
-- 401 / "invalid_token": the token is wrong, expired or revoked. Make a new one at
-  `https://wigt.med.harvard.edu/tools/claude_access` and reconnect.
-- 403 / "insufficient_scope": the Wyss Apps account lacks the **Claude access** tool. A super
-  user grants it under Super User → Users.
-- Connection refused / timeout: Wyss Apps is reachable only on the Wyss/HMS network or VPN.
-- 429: more than 120 calls a minute on one token; wait a minute.
+Translate every failure into the one thing the person can do, never the code:
+
+- "invalid token" or "no token": "Make a new token on https://wigt.med.harvard.edu/tools/claude_access and save it with the page's one-line command; then ask again."
+- the account lacks a tool (403): "Your Wyss Apps account does not have that; ask Matthew Laubach."
+- Wyss Apps cannot be reached: "Connect to the Harvard VPN, then ask again."
+- too many requests (429): wait a minute and retry once, silently.

@@ -198,6 +198,9 @@ Work words, never statuses.
 - The person's side: sign in to PeopleSoft in Chrome once in the morning, leave Chrome and the
   Claude desktop app open and the computer awake. Closing Chrome means the next run asks for a
   sign-in (through the costing channel).
+- Both tasks must run **on the computer**, never in the cloud: a cloud session has neither the
+  Wyss Apps plugin nor the person's Chrome. In Claude, Settings, Cowork, turn off "Run new
+  tasks in the cloud" before creating them.
 
 ## Claude's bookkeeping (never shown to the person)
 
