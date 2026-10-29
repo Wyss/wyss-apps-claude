@@ -1,7 +1,7 @@
 {
   "name": "wyss-apps",
-  "version": "0.10.1",
-  "description": "Wyss Apps for Claude: look up Wyss Institute projects, science, people, faculty performance, grants and the costing-change queue as yourself. One local bridge everywhere (Claude Code, Claude Desktop, Cowork on your computer) that reads your Wyss Apps token from ~/.wyss-apps/token.",
+  "version": "0.11.1",
+  "description": "Wyss Apps for Claude: look up Wyss Institute projects, science, people, faculty performance, grants, Institute-wide finance and the costing-change queue as yourself. One local bridge everywhere (Claude Code, Claude Desktop, Cowork on your computer) that reads your Wyss Apps token from ~/.wyss-apps/token.",
   "author": {
     "name": "Matthew Laubach",
     "email": "matthew.laubach@wyss.harvard.edu"

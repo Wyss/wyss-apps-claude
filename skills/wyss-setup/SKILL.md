@@ -49,6 +49,7 @@ Three examples, chosen from the tools `whoami` lists, in the person's own domain
 - With Costing Changes: "Run the costing changes." (keys every ready request into PeopleSoft and
   stops at Save for them.)
 - With Involvement: "Who at the Wyss knows about microfluidics?"
-- With financial access: "How much runway does fund 377514 have?"
+- With financial access: "How much runway does fund 377514 have?", "How much IDC did <faculty>
+  generate this fiscal year?", "Chart sponsored spend by sponsor for FY2026."
 
 Keep the whole answer under ten lines when everything passes.
