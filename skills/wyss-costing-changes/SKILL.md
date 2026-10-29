@@ -95,8 +95,13 @@ never refilled by a scheduled run.
    list, close the tab, skip ("PeopleSoft already shows different costing; flagged for
    Matthew").
 5. `await WYSS.fill(spec)`: adds the effective-dated row, sets the date, makes the lines equal
-   `spec.distributions`, waits for each refresh, returns the readback only when
-   `WYSS.verify(spec, readback)` is empty. If it throws: record it with
+   `spec.distributions`, waits for each refresh, makes PeopleSoft recompute the Distribution
+   Total (`WYSS.recalc()`) when the page still shows a stale one, and returns the readback only
+   when `WYSS.verify(spec, readback)` is empty. If the only problem reported is "Distribution
+   Total shows … the page has not recalculated": click into the last percentage field in the
+   tab and press Tab (a real keystroke is what PeopleSoft listens for), wait, then
+   `WYSS.readPage()` and `WYSS.verify` again; a total that now reads 100.000 is fine. Never
+   leave a page whose shown total is not 100.000 for the person to save. If it throws: record it with
    `rehearse_costing_change` (`outcome: "failed"`, the error as `note`, `WYSS.readPage()` as
    the readback). Present run: fall back to keying by hand (next step). Scheduled run:
    `report_costing_change_error` with the error, close the tab, skip.
@@ -108,9 +113,10 @@ never refilled by a scheduled run.
    `fund` in `HU_DEPBUDERN_VW_PROJECT_ID$n`, `activity` in `HU_DEPBUDERN_VW_PRODUCT$n`,
    `subactivity` in `HU_DEPBUDERN_VW_PROGRAM_CODE$n`, `root` in `HU_DEPBUDERN_VW_CLASS_FLD$n`,
    `pct` (three decimals) in `HU_DEPBUDERN_VW_DIST_PCT$n`, tabbing out after each. Never type
-   the object code (`HU_DEPBUDERN_VW_ACCOUNT$n`); leave Earnings Code blank. Wait until
-   "Distribution Total" reads 100.000 with no error text; `WYSS.readPage()` for the readback
-   and `WYSS.verify(spec, readback)` must be empty.
+   the object code (`HU_DEPBUDERN_VW_ACCOUNT$n`); leave Earnings Code blank. Type the values
+   and press Tab out of each field (PeopleSoft recomputes the total on that keystroke). Wait
+   until "Distribution Total" reads 100.000 with no error text; `WYSS.readPage()` for the
+   readback and `WYSS.verify(spec, readback)` must be empty.
 7. `mark_costing_change_staged` with the readback, `confirm: true`; keep the result's
    `backup_upload_url`. A mismatch: leave the tab open, skip ("flagged for review").
 
@@ -225,5 +231,5 @@ needs_review, error, cancelled. `ps_fill_spec` (version 2): `budget_level`, `dep
 MM/DD/YYYY); `distributions[]` carries `tub`, `org`, `fund`, `activity`, `subactivity`, `root`,
 `pct` (`object` is readback only); `current_costing.lines` is the before. `lib/peoplesoft.js`:
 `PS` (generic: `doc`, `idle`, `setField`, `click`, `state`) and `WYSS` (this page: `state`,
-`probe`, `readPage`, `checkBefore`, `fill`, `verify`, `cancel`, `saved`). Nothing here writes
+`probe`, `readPage`, `checkBefore`, `fill`, `verify`, `recalc`, `cancel`, `saved`). Nothing here writes
 to PeopleSoft.
