@@ -71,8 +71,8 @@ From the preflight list, `whoami` gives the person's email for `claimed_by`:
   ("filled page lost before Save"), `review_costing_change` `mark_ready`, and key it again.
 - **Theirs, started** (`claimed`, `claimed_by` them): key it now (claiming again renews).
 - Someone else's claimed or staged: leave alone; list in the report.
-- **Waiting** (`ready`): oldest first. `ps_fill_spec.budget_level` `A` (no position number) is
-  not automated: do not claim it; list it as "needs keying by hand".
+- **Waiting** (`ready`): oldest first. Both budget levels are keyed: `P` (position-level) and
+  `A` (appointment-level, no position number) differ only in the URL below.
 
 Two unsaved filled pages for the same request must never exist. That is why a staged request is
 never refilled by a scheduled run.
@@ -81,9 +81,14 @@ never refilled by a scheduled run.
 
 1. `claim_costing_change` (`confirm: true`), then `get_costing_change` for `ps_fill_spec`
    (`spec`). Refused because someone else holds it: skip, list at the end.
-2. Open the direct URL in a **new tab of this run** (never touch other tabs):
+2. Open the direct URL in a **new tab of this run** (never touch other tabs). Position-level
+   (`spec.budget_level` `P`):
    ```
-   https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_CACTG.HU_DPTBGT_ERN.GBL?Page=HU_DPTBGT_ERN&Action=U&ForceSearch=Y&BUDGET_LEVEL_INDC=<spec.budget_level>&DEPTID=<spec.deptid>&EMPL_RCD=<spec.empl_rcd>&FISCAL_YEAR=<spec.fiscal_year>&POSITION_NBR=<spec.position_no>
+   https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_CACTG.HU_DPTBGT_ERN.GBL?Page=HU_DPTBGT_ERN&Action=U&ForceSearch=Y&BUDGET_LEVEL_INDC=P&DEPTID=<spec.deptid>&EMPL_RCD=<spec.empl_rcd>&FISCAL_YEAR=<spec.fiscal_year>&POSITION_NBR=<spec.position_no>
+   ```
+   Appointment-level (`A`, no position: the employee id selects the page instead):
+   ```
+   https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_CACTG.HU_DPTBGT_ERN.GBL?Page=HU_DPTBGT_ERN&Action=U&ForceSearch=Y&BUDGET_LEVEL_INDC=A&DEPTID=<spec.deptid>&EMPLID=<spec.empl_id>&EMPL_RCD=<spec.empl_rcd>&FISCAL_YEAR=<spec.fiscal_year>&POSITION_NBR=
    ```
 3. Load the script: read `lib/peoplesoft.js` from the plugin root (`${CLAUDE_PLUGIN_ROOT}/lib/peoplesoft.js`)
    and evaluate the whole file in the tab; it defines `PS`, the generic PeopleSoft layer, and
@@ -91,9 +96,12 @@ never refilled by a scheduled run.
    again: the session can drop mid-run. Not `ready`: `release_costing_change` (back to the
    queue), then the state table, and stop the run. `ready` but `page` is not
    `department_budget_earnings`: `report_costing_change_error` with `WYSS.probe()`, skip.
-4. `WYSS.checkBefore(spec)` must return `[]`. Otherwise `report_costing_change_error` with the
-   list, close the tab, skip ("PeopleSoft already shows different costing; flagged for
-   Matthew").
+4. `WYSS.checkBefore(spec)` must return `[]`. If it says no costing lines were found on the
+   page (the script does not recognise this page's fields): record `WYSS.probe()` with
+   `rehearse_costing_change` (`outcome: "failed"`, the probe as `note`) so the script can be
+   taught the page, then key by hand (step 6) in a present run, or skip in a scheduled run.
+   Any other difference: `report_costing_change_error` with the list, close the tab, skip
+   ("PeopleSoft already shows different costing; flagged for Matthew").
 5. `await WYSS.fill(spec)`: adds the effective-dated row, sets the date, makes the lines equal
    `spec.distributions`, waits for each refresh, makes PeopleSoft recompute the Distribution
    Total (`WYSS.recalc()`) when the page still shows a stale one, and returns the readback only
@@ -136,7 +144,10 @@ Present run: wait for "done" and run After Save. Scheduled run: stop here.
 
 ## After Save (the finisher; any mode can run it)
 
-For each request of theirs that is `staged`:
+For each request of theirs that is `staged`. A message in the chat ("saved", "Kasia costing
+saved") is the cue to run this step, never the proof: nothing is recorded as saved until the
+reopened page shows the new row, and `mark_costing_change_submitted` is never called on a chat
+message alone.
 
 1. **Confirm the save without trusting any old tab.** Open the direct URL in a new tab of this
    run, load `peoplesoft.js`, `WYSS.state()` must be `ready`, then `WYSS.readPage()`: the top
@@ -145,10 +156,13 @@ For each request of theirs that is `staged`:
    run: say which one still needs Save). The page shows an unsaved editable row → this tab
    is the one with the edit (same conversation): leave it, not saved.
 2. **File the backup.** On the saved page, scroll so the Effective Date, the lines and the
-   Distribution Total are in view and take a screenshot. Open `backup_upload_url` (from the
+   Distribution Total are in view and take a screenshot. The backup is the page exactly as
+   shown: never mask, crop, hide or edit anything on it, pay rates included (the rule about
+   pay rates is about what Claude writes and says, not about the backup). Open `backup_upload_url` (from the
    staged result or `get_costing_change`) in a new tab: no sign-in needed. `find`
    `#backup-file`, `upload_image` the screenshot to it as `LastName_FirstName_YYYY-MM-DD.png`
-   (the effective date), click `#attach-backup`, check for `#backup-filed`. That records the
+   (the effective date), click `#attach-backup`, wait, and check for `#backup-filed` (the page
+   title reads "Costing change backup"). That records the
    save and closes the request; the confirmation email goes out by itself.
    `#backup-link-expired` → `get_costing_change` for a fresh link. Upload failing twice in a
    present run → ask for a PDF (Ctrl+P, Save as PDF to Downloads, "done") and `file_upload` it
