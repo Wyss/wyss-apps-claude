@@ -8,15 +8,13 @@ description: The Wyss Apps analytics cheat sheet - how every sponsored-project a
 Numbers from Wyss Apps mean one thing each. Use these definitions, name the metric in every
 sentence, and call `wyss_guide` (topic metrics) if this file is not loaded.
 
-## Before anything (silent when it passes)
+## If a tool fails (no check before the first answer)
 
-Call `whoami` once per session before the first answer. If it answers, say nothing about setup
-and do the work. If `whoami` answers with `plugin.update_available` true, add one line, its `plugin.update` text, and go on. If it fails, its message already says the one thing to do (missing token,
-expired token, not on the VPN, account without access): repeat that sentence and stop. If the
-Wyss Apps tools are missing altogether, say both causes and stop: this Cowork session may be
-running in the cloud, where the plugin cannot run (Settings, Cowork, turn off "Run new tasks in
-the cloud", then start a new session), or the plugin is not enabled for this chat (Customize,
-Plugins, add `https://github.com/Wyss/wyss-apps-claude` and enable it).
+Go straight to the question; do not call `whoami` first. A failed Wyss Apps call already says
+the one thing to do (missing or expired token, not on the VPN, no access): repeat that sentence
+and stop. If the Wyss Apps tools are missing altogether, the `wyss-setup` skill (or
+`wyss_guide` topic setup) has the two causes. A result carrying `plugin_update` means the
+plugin is behind: add that one line and go on.
 The person does not need to know Wyss Apps: no tool names, no permission talk beyond "you do
 not have access to <thing>; ask Matthew Laubach". Lead with the result.
 
@@ -24,7 +22,7 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
 
 | Question | Tool |
 |---|---|
-| "How is Prof. X doing / what has X submitted, won, lost, by year?" | `faculty_view` (name; optional `fiscal_years`) |
+| "How is Prof. X doing / what has X submitted, won, lost, by year?" | `faculty_view` (name; optional `fiscal_years`; `detail: "full"` with one or two years only when the person wants that year's grants listed) |
 | "Tell me everything about grant / fund 377514 / this project" | `sponsored_project_lookup` (id, fund, GMAS id or name) |
 | "What does the Wyss do on topic Y, who works on it?" | `search_science`, then `get_project` |
 | "How many projects in Grand Challenge Z / platform P?" | `list_science_themes` (counts), `search_science` with the filter (list) |

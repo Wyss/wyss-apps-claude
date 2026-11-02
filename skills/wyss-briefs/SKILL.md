@@ -10,20 +10,21 @@ dumped: short sections, the numbers that matter, the open questions, nothing the
 see in Wyss Apps. Read `wyss_guide(topic: "style")` once per session before writing, and
 `wyss_guide(topic: "metrics")` before quoting dollars or rates.
 
-## Before anything (silent when it passes)
+## If a tool fails (no check before the first answer)
 
-Call `whoami` once per session before the first answer. If it answers, say nothing about setup
-and do the work. If `whoami` answers with `plugin.update_available` true, add one line, its `plugin.update` text, and go on. If it fails, its message already says the one thing to do (missing token,
-expired token, not on the VPN, account without access): repeat that sentence and stop. If the
-Wyss Apps tools are missing altogether, say both causes and stop: this Cowork session may be
-running in the cloud, where the plugin cannot run (Settings, Cowork, turn off "Run new tasks in
-the cloud", then start a new session), or the plugin is not enabled for this chat (Customize,
-Plugins, add `https://github.com/Wyss/wyss-apps-claude` and enable it). If the Microsoft
-365 connector (calendar search) is missing, say one line ("Connect Microsoft 365 in Claude,
-Settings, Connectors, so I can read the meeting from your calendar") and write the brief
-without it.
+Go straight to the brief; do not call `whoami` first. A failed Wyss Apps call already says the
+one thing to do (missing or expired token, not on the VPN, no access): repeat that sentence and
+stop. If the Wyss Apps tools are missing altogether, the `wyss-setup` skill (or `wyss_guide`
+topic setup) has the two causes. A result carrying `plugin_update` means the plugin is behind:
+add that one line and go on. If the Microsoft 365 connector (calendar search) is missing, say
+one line ("Connect Microsoft 365 in Claude, Settings, Connectors, so I can read the meeting
+from your calendar") and write the brief without it.
 The person does not need to know Wyss Apps: no tool names, no permission talk beyond "you do
 not have access to <thing>; ask Matthew Laubach". Lead with the result.
+
+Payloads: `faculty_view` answers compactly by default (counts, dollars, rates, top sponsors,
+the ten largest active awards). That is the brief's material; ask for `detail: "full"` only
+when a section needs every grant of one year, and never for more than two fiscal years.
 
 ## Which brief
 
