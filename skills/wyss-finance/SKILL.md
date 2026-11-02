@@ -232,6 +232,18 @@ money that never came.
 - These four join `wigt_projects` on `dw_segment_key`. Sponsored funds starting with 1 are
   federal, with 2 non-federal.
 
+### Split awards (each PI's share) and accounts
+
+- `wigt_split_submissions` (one per split project; `wigt_project_id` = `wigt_projects.id`, `status`
+  `valid` / `invalid`) and `wigt_split_submission_allocations` (each PI's share: `pi_name`,
+  `position`, `proposed_direct/_indirect`, `anticipated_direct/_indirect`, summing to the project's
+  totals as saved). **IDC by PI on a split project = `anticipated_indirect` per allocation**, not
+  the project's figure. Five active projects are split (Nov 2026).
+- `wigt_accounts`: GMAS accounts under each segment (`account_id`, `account_desc`,
+  `dw_segment_key`, `fund`, `org`, `activity`, `subactivity`, `account_pi`, `wigt_pi`,
+  `account_status_cd` A/I, `allocated_amt`, `idc_rate`, dates). Match a split PI to accounts by last
+  name within the segment; `budget_pi_univ_id` is a Harvard ID and is refused.
+
 ## The views
 
 | View | What it is | Key columns |
@@ -242,6 +254,7 @@ money that never came.
 | `wigt_projects` | Every sponsored proposal and award (about 1,480) | `project_number` (= `project_key`), `title`, `wyss_name`, `status` / `wyss_status` (effective = `COALESCE(NULLIF(wyss_status, ''), status)`), `success_status`, `fiscal_year`, `date_submitted`, decision and period dates, sponsors, `wigt_proposed_*`, `wigt_anticipated_*`, `wigt_obligated_*`, `wyss_*` overrides and their `use_wyss_*` switches, `selected_for_funding`, `wigt_pi`, `research_type_desc`, `fund`; `id` only for joining |
 | `funding_sources` + `funding_sources_wigt_projects` | Funder type per proposal | `LEFT JOIN funding_sources_wigt_projects j ON j.wigt_project_id = w.id LEFT JOIN funding_sources fs ON fs.id = j.funding_source_id`; `fs.name` |
 | `wigt_requests`, `wigt_award_revisions`, `wigt_award_notices`, `wigt_notice_requests`, `wigt_request_investigators` | GMAS requests and the award chain | As above |
+| `wigt_split_submissions`, `wigt_split_submission_allocations`, `wigt_accounts` | PI shares of split awards; GMAS accounts per segment | As above |
 
 **Joins**: proposals to the project list `w.project_number = a.project_key AND a.source = 'sponsored'`;
 transactions to projects `t.project_number = p.project_key AND p.source = 'sponsored'`;
