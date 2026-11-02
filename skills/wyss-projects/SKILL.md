@@ -32,7 +32,7 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
 | `get_project` | Everything the person may see about one project: `type` + `id` from a search. Sections the policy hides are listed in `sections_hidden_for_you`, never silently dropped. |
 | `search_science` | Questions about *the science*: topics, methods, diseases, organisms, materials, techniques, sponsors. Full-text over summaries, abstracts, problem statements, applications, status narratives and publications, ranked with a highlighted snippet. Quoted phrases, OR, -exclusions; filters `grand_challenge`, `platform`, `faculty`, `status`, `tag`. |
 | `list_science_themes` | The science map: the six Grand Challenges, the platform initiatives, tags, funding sources and the faculty with the most projects, with counts of what this person can see. Use it to choose filters and to explain how the Institute organises its work. |
-| `search_people` | The Wyss directory (needs the Involvement tool): name, title, Wyss role, email, profile text, skills, and the projects they are on that the person can see. No HR, pay or effort data. |
+| `search_people` | The Wyss directory (needs the Involvement tool): name, title, Wyss role, email, profile text, skills, and the projects they are on that the person can see. A topic ("microfluidics", "organ chips") also searches the text of the visible projects and returns the people on the matching projects (team roles, linked faculty, the GMAS PI by name when no profile is linked), ranked by how many matching projects they are on: each row carries `matched_projects` (up to three, with the matched snippet, their role and the `url`) and a one-line `why`. A name is a plain directory lookup. No HR, pay or effort data. |
 | `faculty_view` | A faculty member's or PI's sponsored-project record by fiscal year: submitted / awarded / declined counts and dollars, success rate per year, time to award, by sponsor, funding source, Grand Challenge and platform, active portfolio, pipeline, new-money requests. The default (`detail: "summary"`) carries no per-project rows; ask for `detail: "full"` with one or two `fiscal_years` when the person wants the list of that year's grants. Definitions in the `wyss-metrics` skill. |
 | `sponsored_project_lookup` | One grant, everything: GMAS record and classification, funding timeline (requests, award revisions), accounts, spend by fiscal year, burndown with burn and runway, who is costed to it, and ready-made highlights. By id, fund number, GMAS id or name. |
 | `wyss_guide` | The guides, one topic per call: `style` (vocabulary and document style; **call before writing any report, summary, email or slide**), `metrics` (what every metric means; call before quoting numbers), `costing_changes`, `projects`. They are the same text as this plugin's skills, so Claude gets them without the plugin. |
@@ -69,7 +69,13 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
    Grand Challenge and platform, the `url`. Group by platform or Grand Challenge for overviews;
    by faculty for "who works on". Say plainly when the record has no science text (many
    sponsored projects carry only a title and sponsor).
-5. For "who should I talk to", combine the project's faculty and team with `search_people`.
+5. For "who works on X", "who knows about X" or "who should I talk to about X", call
+   `search_people` with the topic (needs the Involvement tool): it ranks people by the matching
+   projects they are on and says why ("on 3 projects about organ chips"). Lead with the top
+   people and the project each is on, quote the `why`, and link the `matched_projects` urls. A
+   row without an `id` is a GMAS PI with no directory profile: name them and say so. Without
+   the Involvement tool, answer from the `faculty` and `pi` of the `search_science` hits and
+   the team on `get_project`.
 
 ## How to answer
 

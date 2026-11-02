@@ -8,6 +8,11 @@
 # call returns the reason as a tool error. A connection gives up after 4s.
 #   token: $env:WYSS_APPS_TOKEN, then $env:WYSS_APPS_TOKEN_FILE, then $HOME\.wyss-apps\token
 #   url:   $env:WYSS_APPS_URL, then $HOME\.wyss-apps\url, then https://wigt.med.harvard.edu/mcp
+# No token, or a refused one: the Claude access page's "Download token file" saves
+# the token as Downloads\wyss-apps-token (under $env:USERPROFILE), and the bridge
+# moves that file into $HOME\.wyss-apps\token and removes it from Downloads, so the
+# first call after the download simply works, with nothing typed. A download older
+# than a day is ignored.
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # Windows PowerShell 5.1 would otherwise draw a progress bar per request
 # Windows PowerShell 5.1 on an older Windows build may still default to TLS 1.0; make sure 1.2 is on.
@@ -25,8 +30,12 @@ try {
 } catch {}
 $Client = "wyss-apps-plugin-bridge-ps/$PluginVersion"
 $DefaultUrl = "https://wigt.med.harvard.edu/mcp"
-$TokenHelp = "Create a token at https://wigt.med.harvard.edu/tools/claude_access and save it in $HOME\.wyss-apps\token (no restart needed)."
-$CacheDir = Join-Path $HOME ".wyss-apps\cache"
+$TokenHelp = "Create a token at https://wigt.med.harvard.edu/tools/claude_access, click `"Download token file`" and ask again: the plugin moves the downloaded file into $HOME\.wyss-apps\token by itself (no restart needed; a download older than a day is ignored)."
+$WyssDir = Join-Path $HOME ".wyss-apps"
+$CacheDir = Join-Path $WyssDir "cache"
+$DownloadsDir = Join-Path $(if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }) "Downloads"
+$DownloadName = "wyss-apps-token"
+$DownloadMaxAgeHours = 24
 $OfflineHelp = "Wyss Apps is not reachable from this computer right now. Connect to the Wyss VPN (or the Harvard network) and ask again; nothing needs restarting."
 $StatusTool = "wyss_apps_status"
 $StubTools = $false                  # tools/list was answered with the stub: the next good reply asks Claude to reload the list
@@ -35,13 +44,32 @@ $LastOk = [DateTime]::MinValue       # a TCP check (4s) runs first when nothing 
 
 function Get-WyssToken {
   if ($env:WYSS_APPS_TOKEN) { return $env:WYSS_APPS_TOKEN.Trim() }
-  $file = if ($env:WYSS_APPS_TOKEN_FILE) { $env:WYSS_APPS_TOKEN_FILE } else { Join-Path $HOME ".wyss-apps\token" }
+  $file = if ($env:WYSS_APPS_TOKEN_FILE) { $env:WYSS_APPS_TOKEN_FILE } else { Join-Path $WyssDir "token" }
   if (Test-Path $file) { return (Get-Content $file -Raw).Trim() }
   return $null
 }
+# Move a fresh Downloads\wyss-apps-token into place as the token file. $true when a
+# token was adopted (the caller re-reads it). Nothing happens while $env:WYSS_APPS_TOKEN is set.
+function Import-DownloadedToken {
+  if ($env:WYSS_APPS_TOKEN) { return $false }
+  $dest = if ($env:WYSS_APPS_TOKEN_FILE) { $env:WYSS_APPS_TOKEN_FILE } else { Join-Path $WyssDir "token" }
+  foreach ($name in @($DownloadName, "$DownloadName.txt")) {
+    $f = Join-Path $DownloadsDir $name
+    if (-not (Test-Path $f -PathType Leaf)) { continue }
+    try {
+      $item = Get-Item $f
+      if (([DateTime]::UtcNow - $item.LastWriteTimeUtc).TotalHours -gt $DownloadMaxAgeHours) { continue }
+      if (-not ([System.IO.File]::ReadAllText($f)).Trim()) { continue }
+      New-Item -ItemType Directory -Force (Split-Path -Parent $dest) | Out-Null
+      Move-Item -Force $f $dest
+      return $true
+    } catch { continue }
+  }
+  return $false
+}
 function Get-WyssUrl {
   if ($env:WYSS_APPS_URL) { return $env:WYSS_APPS_URL.Trim() }
-  $file = Join-Path $HOME ".wyss-apps\url"
+  $file = Join-Path $WyssDir "url"
   if (Test-Path $file) { return (Get-Content $file -Raw).Trim() }
   return $DefaultUrl
 }
@@ -115,6 +143,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
   try { $msg = $line | ConvertFrom-Json; if ($msg.PSObject.Properties.Name -contains "id") { $id = $msg.id } }
   catch { Write-RpcError $null -32700 "Parse error"; continue }
   $token = Get-WyssToken
+  if (-not $token -and (Import-DownloadedToken)) { $token = Get-WyssToken }
   $url = Get-WyssUrl
   if (-not $token) { Send-OfflineAnswer $msg $id -32001 "No Wyss Apps token on this computer. $TokenHelp"; continue }
   $isCall = $msg.method -eq "tools/call"
@@ -126,30 +155,36 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
   }
   # The stub tool is whoami under another name: once Wyss Apps answers, it proves the connection.
   if ($isCall -and $msg.params -and $msg.params.name -eq $StatusTool) { $line = $line.Replace('"name":"' + $StatusTool + '"', '"name":"whoami"') }
-  try {
-    $resp = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body ([System.Text.Encoding]::UTF8.GetBytes($line)) -TimeoutSec 90 -UseBasicParsing `
-      -Headers @{ "Authorization" = "Bearer $token"; "Accept" = "application/json, text/event-stream"; "X-Wyss-Apps-Client" = $Client }
-    $LastOk = [DateTime]::UtcNow
-    $OfflineUntil = [DateTime]::MinValue
-    if ($resp.StatusCode -eq 202 -or $resp.StatusCode -eq 204) { continue }
-    $body = [System.Text.Encoding]::UTF8.GetString($resp.RawContentStream.ToArray())
-    if ($body -match '^data:') { $body = (($body -split "`n") | Where-Object { $_ -like 'data:*' } | ForEach-Object { $_.Substring(5).Trim() }) -join "`n" }
-    $body = $body.Trim()
-    if ($null -ne $id -or $body.Length -gt 0) { Write-Reply $body }
-    if ($msg.method -eq "initialize") { Save-CachedResult "initialize" $body }
-    if ($msg.method -eq "tools/list") { Save-CachedResult "tools" $body; $StubTools = $false }
-    if ($StubTools) { $StubTools = $false; Write-Reply '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}' }
-  } catch {
-    $err = $_
-    $status = 0
-    try { $status = [int]$err.Exception.Response.StatusCode } catch {}
-    if ($status -ne 0) { $LastOk = [DateTime]::UtcNow; $OfflineUntil = [DateTime]::MinValue }
-    switch ($status) {
-      0 { $OfflineUntil = [DateTime]::UtcNow.AddSeconds(15); Send-OfflineAnswer $msg $id -32002 $OfflineHelp }
-      401 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused the token (expired, revoked or wrong). $TokenHelp" }
-      403 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused this account: it does not have the AI Assistant (Claude) tool. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu)." }
-      429 { if ($null -ne $id) { Write-RpcError $id -32004 "Wyss Apps rate limit: more than 120 requests a minute on this token. Wait a minute." } }
-      default { Send-OfflineAnswer $msg $id -32005 "Wyss Apps answered HTTP $status. ($($err.Exception.Message))" }
+  $attempt = 0
+  while ($true) {   # one request; a second only when a refused token was replaced by a fresh download
+    $attempt++
+    try {
+      $resp = Invoke-WebRequest -Uri $url -Method Post -ContentType "application/json" -Body ([System.Text.Encoding]::UTF8.GetBytes($line)) -TimeoutSec 90 -UseBasicParsing `
+        -Headers @{ "Authorization" = "Bearer $token"; "Accept" = "application/json, text/event-stream"; "X-Wyss-Apps-Client" = $Client }
+      $LastOk = [DateTime]::UtcNow
+      $OfflineUntil = [DateTime]::MinValue
+      if ($resp.StatusCode -eq 202 -or $resp.StatusCode -eq 204) { break }
+      $body = [System.Text.Encoding]::UTF8.GetString($resp.RawContentStream.ToArray())
+      if ($body -match '^data:') { $body = (($body -split "`n") | Where-Object { $_ -like 'data:*' } | ForEach-Object { $_.Substring(5).Trim() }) -join "`n" }
+      $body = $body.Trim()
+      if ($null -ne $id -or $body.Length -gt 0) { Write-Reply $body }
+      if ($msg.method -eq "initialize") { Save-CachedResult "initialize" $body }
+      if ($msg.method -eq "tools/list") { Save-CachedResult "tools" $body; $StubTools = $false }
+      if ($StubTools) { $StubTools = $false; Write-Reply '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}' }
+    } catch {
+      $err = $_
+      $status = 0
+      try { $status = [int]$err.Exception.Response.StatusCode } catch {}
+      if ($status -ne 0) { $LastOk = [DateTime]::UtcNow; $OfflineUntil = [DateTime]::MinValue }
+      if ($status -eq 401 -and $attempt -eq 1 -and (Import-DownloadedToken)) { $token = Get-WyssToken; continue }
+      switch ($status) {
+        0 { $OfflineUntil = [DateTime]::UtcNow.AddSeconds(15); Send-OfflineAnswer $msg $id -32002 $OfflineHelp }
+        401 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused the token (expired, revoked or wrong). $TokenHelp" }
+        403 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused this account: it does not have the AI Assistant (Claude) tool. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu)." }
+        429 { if ($null -ne $id) { Write-RpcError $id -32004 "Wyss Apps rate limit: more than 120 requests a minute on this token. Wait a minute." } }
+        default { Send-OfflineAnswer $msg $id -32005 "Wyss Apps answered HTTP $status. ($($err.Exception.Message))" }
+      }
     }
+    break
   }
 }

@@ -16,8 +16,8 @@ Call `whoami`.
 | Result | Say |
 |---|---|
 | Answers with a name and tools | "Connected to Wyss Apps as <name>." (one line; then go on). If `plugin.update_available` is true, add its `plugin.update` line: the plugin is behind and the person should update it (Cowork: Customize, Plugins, Wyss Apps, Update). |
-| Error "No Wyss Apps token" | "The token file is missing. Open <setup page>, create a token, and run the one-line command the page shows for your computer. Then say check again." |
-| Error "refused the token (401)" | "The token has expired or was revoked. Open <setup page>, create a new token and save it with the page's command. Then say check again." |
+| Error "No Wyss Apps token" | "The token file is missing. Open <setup page>, create a token and click Download token file; it lands in your Downloads folder and the plugin moves it into place by itself. Then say check again." (A download older than a day is ignored: ask them to download a fresh one. If downloads are blocked, the page shows a one-line command for their computer under the new token.) |
+| Error "refused the token (401)" | "The token has expired or was revoked. Open <setup page>, create a new token and click Download token file. Then say check again." The plugin replaces the old token with the fresh download on that next call. |
 | Error "refused this account (403)" | "Your Wyss Apps account does not have the AI Assistant tool yet. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu) to add it." |
 | Error "Cannot reach Wyss Apps" or "Wyss Apps is not reachable from this computer right now" | "Wyss Apps is only reachable on the Harvard network or VPN. Connect to the VPN, then say check again." No restart is needed. |
 | The only Wyss Apps tool is `wyss_apps_status` | The chat started off the VPN on a computer that had never connected. "Connect to the VPN, then say check again." Call `wyss_apps_status`; once it answers, the full tool list loads (if it does not, start a new chat). |

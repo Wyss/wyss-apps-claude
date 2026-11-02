@@ -17,6 +17,12 @@
 # instead of hanging past Claude's own 30s startup limit. Lookup order:
 #   token: $WYSS_APPS_TOKEN, then the file $WYSS_APPS_TOKEN_FILE, then ~/.wyss-apps/token
 #   url:   $WYSS_APPS_URL, then the file ~/.wyss-apps/url, then https://wigt.med.harvard.edu/mcp
+#
+# No token, or a refused one: the Claude access page's "Download token file"
+# saves the token as ~/Downloads/wyss-apps-token, and the bridge moves that
+# file into ~/.wyss-apps/token (mode 600) and removes it from Downloads, so
+# the first call after the download simply works, with nothing typed. A
+# download older than a day is ignored (it is a password left lying around).
 set -u
 # The version reported to Wyss Apps is the plugin's (.claude-plugin/plugin.json next to
 # this bridge's folder), so the server can tell the person when the plugin is behind.
@@ -25,7 +31,10 @@ VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$P
 [ -n "$VERSION" ] || VERSION="unknown"
 CLIENT="wyss-apps-plugin-bridge/$VERSION"
 DEFAULT_URL="https://wigt.med.harvard.edu/mcp"
-TOKEN_HELP="Create a token at https://wigt.med.harvard.edu/tools/claude_access and save it in ~/.wyss-apps/token (no restart needed)."
+TOKEN_HELP="Create a token at https://wigt.med.harvard.edu/tools/claude_access, click \"Download token file\" and ask again: the plugin moves the downloaded file into ~/.wyss-apps/token by itself (no restart needed; a download older than a day is ignored)."
+DOWNLOADS_DIR="$HOME/Downloads"
+DOWNLOAD_NAME="wyss-apps-token"
+DOWNLOAD_MAX_AGE=86400
 CACHE_DIR="$HOME/.wyss-apps/cache"
 OFFLINE_HELP="Wyss Apps is not reachable from this computer right now. Connect to the Wyss VPN (or the Harvard network) and ask again; nothing needs restarting."
 STATUS_TOOL="wyss_apps_status"
@@ -41,6 +50,31 @@ current_url() {
   if [ -n "${WYSS_APPS_URL:-}" ]; then printf '%s' "$WYSS_APPS_URL"; return; fi
   if [ -r "$HOME/.wyss-apps/url" ]; then tr -d '[:space:]' < "$HOME/.wyss-apps/url"; return; fi
   printf '%s' "$DEFAULT_URL"
+}
+# Seconds since the file was last written (a download's time), or nothing.
+file_age() {
+  local m
+  m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null)" || return 1
+  [ -n "$m" ] || return 1
+  printf '%s' $(( $(date +%s) - m ))
+}
+# Move a fresh ~/Downloads/wyss-apps-token into place as the token file. 0 when
+# a token was adopted (the caller re-reads it), 1 when there was nothing to
+# adopt. Nothing happens while $WYSS_APPS_TOKEN is set.
+adopt_downloaded_token() {
+  [ -z "${WYSS_APPS_TOKEN:-}" ] || return 1
+  local dest="${WYSS_APPS_TOKEN_FILE:-$HOME/.wyss-apps/token}" f age
+  for f in "$DOWNLOADS_DIR/$DOWNLOAD_NAME" "$DOWNLOADS_DIR/$DOWNLOAD_NAME.txt"; do
+    [ -f "$f" ] || continue
+    age="$(file_age "$f")" || continue
+    [ "$age" -le "$DOWNLOAD_MAX_AGE" ] || continue
+    [ -n "$(tr -d '[:space:]' < "$f" 2>/dev/null)" ] || continue
+    mkdir -p "$(dirname "$dest")" 2>/dev/null || continue
+    mv -f "$f" "$dest" 2>/dev/null || continue
+    chmod 600 "$dest" 2>/dev/null
+    return 0
+  done
+  return 1
 }
 # A token file readable by other accounts on the machine is worth a warning
 # in the error text; the token still works.
@@ -123,6 +157,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   id="$(rpc_id "$line")"
   method="$(field "$line" method)"
   token="$(current_token)"
+  if [ -z "$token" ] && adopt_downloaded_token; then token="$(current_token)"; fi
   url="$(current_url)"
   if [ -z "$token" ]; then
     answer_offline "$id" "$method" -32001 "No Wyss Apps token on this computer. $TOKEN_HELP" "$line"
@@ -134,11 +169,17 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
   # The stub tool is whoami under another name: once Wyss Apps answers, it proves the connection.
   case "$line" in *"\"name\":\"$STATUS_TOOL\""*) line="${line/\"name\":\"$STATUS_TOOL\"/\"name\":\"whoami\"}" ;; esac
-  tmp="$(mktemp)"
-  status="$(curl -s --connect-timeout 4 -m 90 -o "$tmp" -w '%{http_code}' -X POST "$url" \
-    -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
-    -H "authorization: Bearer $token" -H "x-wyss-apps-client: $CLIENT" --data-binary "$line" 2>/dev/null)"
-  body="$(cat "$tmp")"; rm -f "$tmp"
+  send_request() { # sets status and body from one POST of $line with the current $token
+    local tmp
+    tmp="$(mktemp)"
+    status="$(curl -s --connect-timeout 4 -m 90 -o "$tmp" -w '%{http_code}' -X POST "$url" \
+      -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+      -H "authorization: Bearer $token" -H "x-wyss-apps-client: $CLIENT" --data-binary "$line" 2>/dev/null)"
+    body="$(cat "$tmp")"; rm -f "$tmp"
+  }
+  send_request
+  # A refused token may simply be the old one: a fresh download replaces it and the request goes once more.
+  if [ "$status" = 401 ] && adopt_downloaded_token; then token="$(current_token)"; send_request; fi
   case "$status" in 000|"") ;; *) offline_until=0 ;; esac
   case "$status" in
     202|204) ;;
