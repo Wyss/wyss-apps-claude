@@ -84,9 +84,10 @@ Burndown figures are cached for 24 hours on the website and here; say "as of" wi
 ## People on the project (needs the Effort History tool)
 
 - **Effort**: the current payroll costing from the nightly feed: each person's **percent on the
-  project** (`dist_pct`, sum of their lines on its fund + activity) and **FTE on the project**
-  (`fin_fte`). Headcount and FTE total are per project. No salaries or rates exist in these
-  answers; never estimate them.
+  project** (`percent_on_project`, 0 to 100: the sum of their costing lines on its fund +
+  activity; the feed keeps the share to the whole percent) and **FTE on the project**
+  (`fte_on_project`, three decimals). Headcount and FTE total are per project. No salaries or
+  rates exist in these answers; never estimate them.
 
 ## Classification dimensions (both project types)
 

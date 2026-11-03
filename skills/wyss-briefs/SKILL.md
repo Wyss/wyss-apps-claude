@@ -37,6 +37,15 @@ when a section needs every grant of one year, and never for more than two fiscal
 
 If the ask names nobody, ask one question: "Whose brief, and for what?" Do not guess a person.
 
+Calendar times: the Microsoft 365 connector returns events in the mailbox's own time zone,
+which is not always where the work is (a Boston calendar can be set to Pacific). Convert every
+event time to America/New_York before matching "my 2pm" and before writing a time in the
+brief, and say the zone once ("2:00 PM ET").
+
+Payloads: `faculty_view` answers compactly by default; its `active_portfolio` can flag
+`past_end_date` on grants whose status still reads Active after their end date. Put those
+under Watch ("still Active in GMAS, ended Aug 31, 2025"), not under the portfolio's money.
+
 ## Layout (keep to one screen)
 
 1. **One line.** Who or what, and the single most important thing (a large award ending, a

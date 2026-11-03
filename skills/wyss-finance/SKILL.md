@@ -462,6 +462,11 @@ WHERE w.success_status IN (0, 1) AND w.fiscal_year BETWEEN 2022 AND 2026
 GROUP BY 1 ORDER BY decided DESC
 ```
 
+No "(no funder type)" row is normal: on 2026-11-03 every decided FY2022 to FY2026 proposal
+carried exactly one funder type (the untyped ones are recent and still pending, query P2). The
+join counts a proposal once per funder type, so if one ever carries two it appears under both:
+say so, or pick one per proposal first (`SELECT DISTINCT ON (w.id) ...` in a CTE).
+
 **P6. Expected IDC from pending proposals**: proposed IDC × the expected rate for its funder type.
 
 ```sql

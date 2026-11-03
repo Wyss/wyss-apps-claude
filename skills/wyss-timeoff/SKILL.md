@@ -32,7 +32,9 @@ report. Anyone can run it, with or without costing access.
    or a host (Claude in Chrome refuses to return those), only `state`, `page`, `path`, `title`.
    - `harvardkey` or `duo`: one line, "Sign in to PeopleSoft in that tab (HarvardKey and Duo),
      then say go." Wait, then open the same URL again, load the script again and re-check.
-     Never type a password, never touch Duo.
+     Never type a password, never touch Duo. (The HarvardKey page sits on a long OAuth URL,
+     `/oauth2/v1/authorize?...`; the script returns only its path, and Chrome's tab list shows
+     the URL with the client id and state redacted, so there is nothing to hide or repeat.)
    - `timeout`: open the URL again once (the HarvardKey session often re-signs in silently),
      then as above.
    - `maintenance`: "PeopleSoft is unavailable right now; try later." Stop.
