@@ -1,6 +1,6 @@
 ---
 name: wyss-costing-changes
-description: Do the payroll costing changes, attended or unattended - "run the costing changes", "scheduled run of the costing changes", "keepalive for the costing changes", "rehearse the costing changes", "what costing changes are waiting", "did Rebecca's change go in". Keys every pending change into PeopleSoft in the person's own Chrome (Claude in Chrome) with a scripted fill, leaves each one ready for their Save, files the backup once saved and tidies the tabs. The person signs in once and clicks Save; nothing else. Use for anything about costing changes, re-costing someone's payroll, the PeopleSoft entry queue, or Beth's queue.
+description: Do the payroll costing changes, attended or unattended - "run the costing changes", "scheduled run of the costing changes", "keepalive for the costing changes", "rehearse the costing changes", "what costing changes are waiting", "did Rebecca's change go in", "did HMS reply about Perelman". Keys every pending change into PeopleSoft in the person's own Chrome (Claude in Chrome) with a scripted fill, leaves each one ready for their Save, files the backup once saved and tidies the tabs. A job another school costs (HMS department, SEAS) is routed instead: the form goes to that school's payroll contact as an Outlook draft the person sends, and their reply is filed as the backup. The person signs in once and clicks Save (or Send); nothing else. Use for anything about costing changes, re-costing someone's payroll, the PeopleSoft entry queue, or Beth's queue.
 ---
 
 # Costing changes
@@ -11,10 +11,16 @@ backup and closing the tabs. Claude never clicks Save, never types a password an
 completes Duo: a run with nobody present can fill and verify, it cannot commit payroll. "Come
 back to 4 done" means "come back to 4 filled and verified, one Save each."
 
+A job costed by another school (an HMS department such as HMS Genetics, or SEAS) is **routed,
+not keyed**: Wyss does not enter it in PeopleSoft. Wyss Apps holds the routing table (which
+payroll contact handles which department); Claude drafts the email with the costing-change form
+in the person's Outlook, and the person's side is one click, **Send**. Claude never sends email.
+
 The person does not know or care how Wyss Apps tracks a request, so never show them its
 machinery: no tool names, no statuses ("claimed", "staged", "ready"), no ids unless they ask.
 Work words only: *waiting to be keyed*, *filled in PeopleSoft, waiting for your Save*, *saved*,
-*done and filed*, *skipped because …*. Never read the pay rates shown on the page into anything.
+*done and filed*, *skipped because …*, *drafted to HMS Genetics, waiting for your Send*, *sent to
+HMS Genetics, waiting for their backup*. Never read the pay rates shown on the page into anything.
 
 ## Modes (from the prompt)
 
@@ -44,7 +50,8 @@ card to the costing channel per reason per day; the chat is not read when they a
 Costing search URL:
 `https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_POS.HU_COSTING_SEARCH.GBL`
 
-Checks 4 to 6 run once per run, not per request. When all pass in a scheduled run or keepalive,
+Routed requests (`routed_to` set) and replies from other schools need no PeopleSoft: in a
+present run with only that work, skip checks 3 to 6. Checks 4 to 6 run once per run, not per request. When all pass in a scheduled run or keepalive,
 call `report_run_status` with `state: "ok"` once (it clears the person's open notices).
 
 ### State table (`WYSS.state()`)
@@ -73,6 +80,15 @@ From the preflight list, `whoami` gives the person's email for `claimed_by`:
 - Someone else's claimed or staged: leave alone; list in the report.
 - **Waiting** (`ready`): oldest first. Both budget levels are keyed: `P` (position-level) and
   `A` (appointment-level, no position number) differ only in the URL below.
+- **Routed** (`routed_to` set on a `ready` row): another school costs the job. Never claim or key
+  it (Wyss Apps refuses the claim). Present run: send it (below). Scheduled run or keepalive:
+  leave it and add "1 to send to HMS Genetics (Perelman): say *send the routed ones*" to the
+  final line; drafting needs the person's Outlook and their Send.
+- **Routed, parked** (`needs_review`, `routed_to` set, no `errors`): a reviewer set it aside as
+  routed, or it was edited after it was sent and the school needs the new form. Present run:
+  send it like a routed one (`list_costing_changes` `status: ["needs_review"]` to find them).
+- `sent_external` rows are with the other school: nothing to key. Check for their reply (below)
+  in a present run or the finisher; a scheduled run leaves them alone.
 
 Two unsaved filled pages for the same request must never exist. That is why a staged request is
 never refilled by a scheduled run.
@@ -130,13 +146,60 @@ never refilled by a scheduled run.
 
 Never close a tab whose row is filled and unsaved.
 
+## Routed to another school (present run, or "send the routed ones")
+
+The person asked for the run, so no per-request question. For each routed request:
+
+1. `send_costing_change_external` with `confirm: true`. It renders the costing-change form PDF,
+   records the request as sent and returns `email` (`to`, `cc`, `cc_without_email`, `subject`,
+   `body_html`, `body_text`, `attachment`), `form_download_url` and `external_routing`.
+   Refused with "No routing for …": say "No payroll contact is set up for <department>; Matthew
+   adds it in Wyss Apps." and skip.
+2. A name in `cc_without_email` (for example Vonda Shannon): `outlook_email_search` with
+   `sender` set to the full name; take the address from a result whose sender name matches.
+   Not found: leave that cc out and say so in the final line.
+3. `outlook_create_draft` with `to`, `cc`, `subject`, `body` = `body_html`, `bodyType: "html"`.
+   Keep the returned `webLink`. Never call a send tool.
+4. **Attach the form** (the connector cannot attach files). If this session can save files (a
+   shell or a working folder), download `form_download_url` there as `attachment`. Otherwise
+   open `form_download_url` in a new Chrome tab (Claude in Chrome): Chrome saves it to
+   Downloads. Open the draft's `webLink` in a new tab, `find` the file input for attachments and
+   `file_upload` the saved PDF; check the draft shows the file name. If the upload is refused or
+   no file input is found, the fallback is the person's: "drag <attachment> from Downloads onto
+   the draft". The signed links work for a few hours.
+5. Close the download tab; leave the draft tab open for the person.
+
+Then one line per request in the final message: "Drafted to Andrea Zakrzewski (HMS Genetics):
+Perelman 11/01, form attached. Open it in Outlook and click Send."
+
+## Did the school reply? (present run, finisher, or "did HMS reply about <name>")
+
+For each `sent_external` request (`list_costing_changes` `status: ["sent_external"]`, or the one
+asked about), `get_costing_change` for `external_routing`, `sent_external_at`,
+`requested_distribution`, `effective_date` and `backup_upload_url`:
+
+1. `outlook_email_search` with `sender` = the first `external_routing.to` address and
+   `afterDateTime` = the date of `sent_external_at`; also try `query` = the employee's last name
+   with no sender. Keep replies that carry a PDF attachment.
+2. Read the message (`read_resource` on its URI) and its PDF (the Department Budget Earnings page
+   they send back). Compare: effective date, every chart-of-accounts line and its percentage
+   against `requested_distribution`, total 100. Never copy pay amounts from the PDF into anything.
+3. **Match:** file it. Preferred: save the PDF (Outlook on the web in Chrome, download the
+   attachment) and `file_upload` it to `#backup-file` on `backup_upload_url`, click
+   `#attach-backup`, check `#backup-filed`. When the file cannot be saved: `file_costing_change_backup`
+   with the message's `webLink`, `confirm: true`. Either closes the request.
+4. **Mismatch:** `report_costing_change_error` naming the difference ("HMS backup shows 60/40
+   from 11/15; request is 75/25 from 11/01"). Tell the person in one sentence.
+5. No reply yet: "Nothing back from HMS Genetics about Perelman since <date>." Nothing to file.
+   PeopleSoft showing the change overnight moves it on by itself; the backup still closes it.
+
 ## The Save list
 
 When every request is filled or skipped, one message (a scheduled run prints the same text as
 its only output):
 
 > 4 costing changes filled in PeopleSoft, waiting for your Save (tabs 2 to 5): Vernet 10/25 ·
-> Perelman 11/01 · Okafor 11/01 · Li 10/18, each 100.000. Skipped: 1 (Diaz, appointment-level,
+> Kim 11/01 · Okafor 11/01 · Li 10/18, each 100.000. Skipped: 1 (Diaz, appointment-level,
 > needs keying by hand). Click Save on each tab, then type done, or just leave them: the next
 > keepalive files the backups for anything you have saved.
 
@@ -169,7 +232,7 @@ message alone.
    on the same page; scheduled → leave it, the next keepalive tries again.
 3. **Tidy.** Close the tabs this run opened for finished requests and the backup tabs. Leave
    one PeopleSoft tab open on the Costing search page. Never close a tab with an unsaved row.
-4. Present run: one line, "Done: 2 saved and filed (Vernet, Perelman)."; scheduled: nothing.
+4. Present run: one line, "Done: 2 saved and filed (Vernet, Kim)."; scheduled: nothing.
 
 ## Keepalive (every 15 minutes in working hours, nobody present)
 
@@ -207,7 +270,9 @@ Work words, never statuses.
   `warnings`, `review_note` and the last `history` entry into one plain sentence.
 - "Did HUID 81657165 go in?" → `submitted`/`backup_filed` means "yes, saved on <date>"
   (`confirmed_in_peoplesoft_at` adds "and PeopleSoft confirmed it overnight"); `staged` means
-  "filled, not yet saved"; earlier means "not yet keyed".
+  "filled, not yet saved"; `sent_external` means "sent to <school> on <date>, waiting for their
+  backup" (then check for the reply, above); earlier means "not yet keyed".
+- "Did HMS reply about Perelman?" → the reply check above for that request.
 - Reviewers, when they ask: `review_costing_change` (`mark_ready`, `send_back` with a note,
   `cancel` with a note); preview, then confirm on their yes.
 
@@ -236,11 +301,13 @@ Work words, never statuses.
 | `report_costing_change_error` | anything that stops one request; flags it for review |
 | `report_run_status` | scheduled runs and keepalives: `blocked` with a reason code (`chrome_closed`, `signed_out`, `duo_pending`, `no_access`, `system_down`, `token_invalid`, `vpn`, `unknown_page`; one card per reason per day), or `ok` |
 | `review_costing_change` | `mark_ready` to re-queue a lost one; reviewer decisions |
+| `send_costing_change_external` | a routed request: form PDF, status sent to the school, the draft email |
 | `mark_costing_change_submitted` | optional; the backup upload records the save by itself |
-| `file_costing_change_backup` | only for a backup kept somewhere other than the request |
+| `file_costing_change_backup` | a backup kept somewhere other than the request (the school's reply, when its PDF cannot be saved) |
 
-Statuses: new → validated → ready → claimed → staged → submitted → backup_filed; side exits
-needs_review, error, cancelled. `ps_fill_spec` (version 2): `budget_level`, `deptid`,
+Statuses: new → validated → ready → claimed → staged → submitted → backup_filed; routed:
+ready → sent_external → submitted (PeopleSoft shows it) or straight to backup_filed (their reply
+filed); side exits needs_review, error, cancelled. `ps_fill_spec` (version 2): `budget_level`, `deptid`,
 `empl_rcd`, `fiscal_year`, `position_no` build the URL; `effective_date` is ISO (typed
 MM/DD/YYYY); `distributions[]` carries `tub`, `org`, `fund`, `activity`, `subactivity`, `root`,
 `pct` (`object` is readback only); `current_costing.lines` is the before. `lib/peoplesoft.js`:
