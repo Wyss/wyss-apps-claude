@@ -14,7 +14,8 @@ back to 4 done" means "come back to 4 filled and verified, one Save each."
 A job costed by another school (an HMS department such as HMS Genetics, or SEAS) is **routed,
 not keyed**: Wyss does not enter it in PeopleSoft. Wyss Apps holds the routing table (which
 payroll contact handles which department); Claude drafts the email with the costing-change form
-in the person's Outlook, and the person's side is one click, **Send**. Claude never sends email.
+in the person's Outlook, and the person's side is one click, **Send**. Claude never sends email
+and never changes the SharePoint list unless the person says so in the chat.
 
 The person does not know or care how Wyss Apps tracks a request, so never show them its
 machinery: no tool names, no statuses ("claimed", "staged", "ready"), no ids unless they ask.
@@ -74,8 +75,10 @@ From the preflight list, `whoami` gives the person's email for `claimed_by`:
   this conversation may not be able to see. Never fill it again. Check whether it was saved by
   reopening its direct URL in a new tab (see After Save): saved → finish it; not saved → keep it
   in the Save list as "filled earlier (tab from the previous run)" and close the tab you opened.
-  Only when a person says in the chat that the old tab is gone: `report_costing_change_error`
-  ("filled page lost before Save"), `review_costing_change` `mark_ready`, and key it again.
+  Never key it again on your own. Present run: ask once ("Kim 11/01 was filled but never
+  saved; PeopleSoft still shows the old costing. Say *rekey* to fill it again.") and only on
+  **rekey** in the chat: `report_costing_change_error` ("filled page lost before Save"),
+  `review_costing_change` `mark_ready`, and key it again. A scheduled run never rekeys.
 - **Theirs, started** (`claimed`, `claimed_by` them): key it now (claiming again renews).
 - Someone else's claimed or staged: leave alone; list in the report.
 - **Waiting** (`ready`): oldest first. Both budget levels are keyed: `P` (position-level) and
@@ -97,15 +100,14 @@ never refilled by a scheduled run.
 
 1. `claim_costing_change` (`confirm: true`), then `get_costing_change` for `ps_fill_spec`
    (`spec`). Refused because someone else holds it: skip, list at the end.
-2. Open the direct URL in a **new tab of this run** (never touch other tabs). Position-level
-   (`spec.budget_level` `P`):
-   ```
-   https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_CACTG.HU_DPTBGT_ERN.GBL?Page=HU_DPTBGT_ERN&Action=U&ForceSearch=Y&BUDGET_LEVEL_INDC=P&DEPTID=<spec.deptid>&EMPL_RCD=<spec.empl_rcd>&FISCAL_YEAR=<spec.fiscal_year>&POSITION_NBR=<spec.position_no>
-   ```
-   Appointment-level (`A`, no position: the employee id selects the page instead):
-   ```
-   https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_CACTG.HU_DPTBGT_ERN.GBL?Page=HU_DPTBGT_ERN&Action=U&ForceSearch=Y&BUDGET_LEVEL_INDC=A&DEPTID=<spec.deptid>&EMPLID=<spec.empl_id>&EMPL_RCD=<spec.empl_rcd>&FISCAL_YEAR=<spec.fiscal_year>&POSITION_NBR=
-   ```
+2. Open the direct URL, `spec.ps_url`, in a **new tab of this run** (never touch other tabs).
+   Never build it from `spec.empl_rcd`: a position-level page is filed under Empl Record 0
+   even when the person's own record is 1 (the link already says 0; the page still shows
+   their own record, which the readback checks). **Nothing found** (a search page or "no
+   matching values" instead of the costing grid): open the Costing search URL and search
+   with **only the position number** (`spec.position_no`), every other field blank, then
+   open the result for `spec.fiscal_year`. Still nothing: `report_costing_change_error`
+   ("PeopleSoft finds no costing page for position <no>"), close the tab, skip.
 3. Load the script: read `lib/peoplesoft.js` from the plugin root (`${CLAUDE_PLUGIN_ROOT}/lib/peoplesoft.js`)
    and evaluate the whole file in the tab; it defines `PS`, the generic PeopleSoft layer, and
    `WYSS`, the costing page. `WYSS.state()`
@@ -119,7 +121,8 @@ never refilled by a scheduled run.
    Any other difference: `report_costing_change_error` with the list, close the tab, skip
    ("PeopleSoft already shows different costing; flagged for Matthew").
 5. `await WYSS.fill(spec)`: adds the effective-dated row, sets the date, makes the lines equal
-   `spec.distributions`, waits for each refresh, makes PeopleSoft recompute the Distribution
+   `spec.distributions` **in that order** (the order the Wyss Apps review page lists them, so
+   the two can be compared row for row; never reorder them, by hand either), waits for each refresh, makes PeopleSoft recompute the Distribution
    Total (`WYSS.recalc()`) when the page still shows a stale one, and returns the readback only
    when `WYSS.verify(spec, readback)` is empty. If the only problem reported is "Distribution
    Total shows … the page has not recalculated": click into the last percentage field in the
@@ -132,7 +135,7 @@ never refilled by a scheduled run.
 6. **Keying by hand** (present run only). Classic PeopleSoft page in the `TargetContent`
    iframe. Click the "+" beside Effective Date (`$ICField16$new$0$$0`); set
    `HU_DPTBGT_VW_EFFDT$0` to `spec.effective_date` as MM/DD/YYYY and tab out. Make the lines
-   equal `spec.distributions` ("+" at the end of a line inserts below, "−" deletes): line `n`
+   equal `spec.distributions`, in order ("+" at the end of a line inserts below, "−" deletes): line `n`
    has `tub` in `HU_DEPBUDERN_VW_FUND_CODE$n`, `org` in `HU_DEPBUDERN_VW_OPERATING_UNIT$n`,
    `fund` in `HU_DEPBUDERN_VW_PROJECT_ID$n`, `activity` in `HU_DEPBUDERN_VW_PRODUCT$n`,
    `subactivity` in `HU_DEPBUDERN_VW_PROGRAM_CODE$n`, `root` in `HU_DEPBUDERN_VW_CLASS_FLD$n`,
@@ -218,21 +221,36 @@ message alone.
    is still the old costing → not saved: close this tab, leave the request as it is (present
    run: say which one still needs Save). The page shows an unsaved editable row → this tab
    is the one with the edit (same conversation): leave it, not saved.
-2. **File the backup.** On the saved page, scroll so the Effective Date, the lines and the
-   Distribution Total are in view and take a screenshot. The backup is the page exactly as
+2. **File the backup: the whole page in one image.** On the saved page, zoom out (Ctrl and
+   minus, or `zoom` on the page body in `TargetContent`) until the header, the position and
+   incumbent data and the full costing grid with Effective Date and Distribution Total all fit
+   in one view, then screenshot it; check the screenshot shows all three before filing (a
+   backup without the employee section is incomplete). Reset the zoom afterwards. The backup is the page exactly as
    shown: never mask, crop, hide or edit anything on it, pay rates included (the rule about
    pay rates is about what Claude writes and says, not about the backup). Open `backup_upload_url` (from the
    staged result or `get_costing_change`) in a new tab: no sign-in needed. `find`
-   `#backup-file`, `upload_image` the screenshot to it as `LastName_FirstName_YYYY-MM-DD.png`
-   (the effective date), click `#attach-backup`, wait, and check for `#backup-filed` (the page
-   title reads "Costing change backup"). That records the
-   save and closes the request; the confirmation email goes out by itself.
+   `#backup-file`, `upload_image` the screenshot to it as `Last_First_YYYY-MM-DD_costing.png`
+   (the effective date; `Last_First_YYYY-MM-DD_costing.pdf` when it is a PDF), click
+   `#attach-backup`, wait, and check for `#backup-filed` (the page title reads "Costing change
+   backup"). That records the save and closes the request.
    `#backup-link-expired` → `get_costing_change` for a fresh link. Upload failing twice in a
    present run → ask for a PDF (Ctrl+P, Save as PDF to Downloads, "done") and `file_upload` it
    on the same page; scheduled → leave it, the next keepalive tries again.
-3. **Tidy.** Close the tabs this run opened for finished requests and the backup tabs. Leave
+3. **Draft the email to the requester** (present run only; a scheduled run or keepalive
+   never touches email). `get_costing_change`: send to `requester` (the person who submitted
+   the request, never a name from the page or the request's other fields); no `requester.email`:
+   `outlook_email_search` with `sender` = `requester.name` and take the address from a matching
+   sender; still none: ask. `outlook_create_draft`, `bodyType: "html"`, the body wrapped in
+   `<div style="font-family:Calibri,sans-serif;font-size:11pt">`: who, which costing, from
+   which date, saved in PeopleSoft, backup attached. Attach the backup from
+   `backup_download_url` the way a routed form is attached (Routed, step 4). Never send.
+4. **Tidy.** Close the tabs this run opened for finished requests and the backup tabs. Leave
    one PeopleSoft tab open on the Costing search page. Never close a tab with an unsaved row.
-4. Present run: one line, "Done: 2 saved and filed (Vernet, Kim)."; scheduled: nothing.
+5. **SharePoint rows**: never change them unless the person says *uncheck* in the chat, each
+   time; then, in the SharePoint list in Chrome, uncheck only the rows of the requests just
+   filed.
+6. Present run: one line, "Done: 2 saved and filed (Vernet, Kim). Emails drafted to Lily
+   Zheng and Ana Ruiz: open them in Outlook and click Send."; scheduled: nothing.
 
 ## Keepalive (every 15 minutes in working hours, nobody present)
 
@@ -293,7 +311,7 @@ Work words, never statuses.
 |---|---|
 | `whoami` | preflight; the person's email for `claimed_by` |
 | `list_costing_changes` | gather work; `status` list, `search`, `payroll_blackout` |
-| `get_costing_change` | `ps_fill_spec`, `current_costing`, `backup_upload_url`, `history` |
+| `get_costing_change` | `ps_fill_spec` (with `ps_url`), `current_costing`, `requester`, `backup_upload_url`, `backup_download_url`, `history` |
 | `claim_costing_change` | before keying (2-hour lock, renewable) |
 | `release_costing_change` | the run cannot continue with a claimed request (session dropped) |
 | `mark_costing_change_staged` | page filled; readback checked; returns `backup_upload_url` |
@@ -308,7 +326,7 @@ Work words, never statuses.
 Statuses: new → validated → ready → claimed → staged → submitted → backup_filed; routed:
 ready → sent_external → submitted (PeopleSoft shows it) or straight to backup_filed (their reply
 filed); side exits needs_review, error, cancelled. `ps_fill_spec` (version 2): `budget_level`, `deptid`,
-`empl_rcd`, `fiscal_year`, `position_no` build the URL; `effective_date` is ISO (typed
+`empl_rcd`, `fiscal_year`, `position_no` are the page keys and `ps_url` the page (served, not stored); `effective_date` is ISO (typed
 MM/DD/YYYY); `distributions[]` carries `tub`, `org`, `fund`, `activity`, `subactivity`, `root`,
 `pct` (`object` is readback only); `current_costing.lines` is the before. `lib/peoplesoft.js`:
 `PS` (generic: `doc`, `idle`, `setField`, `click`, `state`) and `WYSS` (this page: `state`,

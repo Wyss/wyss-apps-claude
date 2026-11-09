@@ -6,7 +6,7 @@ description: The shared Wyss Institute language and document style for anything 
 # Wyss style: one language for everything we write
 
 Wyss Apps is the record; this is how to talk about what is in it. The same words on the website,
-in the Summary by Faculty emails, in the finance reporting kit and in anything Claude writes. When
+in the Summary by Faculty emails, in finance answers and in anything Claude writes. When
 a term here conflicts with a term in a source document, use this one and note the source's term
 once in brackets.
 
