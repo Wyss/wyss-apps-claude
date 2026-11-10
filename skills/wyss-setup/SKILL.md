@@ -50,6 +50,8 @@ Three examples, chosen from the tools `whoami` lists, in the person's own domain
   organ-on-chip?", "Brief me on <faculty> before my 2pm.", "Check my time off."
 - With Costing Changes: "Run the costing changes." (keys every ready request into PeopleSoft and
   stops at Save for them.)
+- With Sponsored Queues: "Clear the sponsored queue." (shows each waiting grant with a guessed
+  classification and saves what they confirm.)
 - With Involvement: "Who at the Wyss knows about microfluidics?"
 - With financial access: "How much runway does fund 377514 have?", "How much IDC did <faculty>
   generate this fiscal year?", "Chart sponsored spend by sponsor for FY2026."
