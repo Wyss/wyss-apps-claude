@@ -175,9 +175,17 @@ while IFS= read -r line || [ -n "$line" ]; do
     status="$(curl -s --connect-timeout 4 -m 90 -o "$tmp" -w '%{http_code}' -X POST "$url" \
       -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
       -H "authorization: Bearer $token" -H "x-wyss-apps-client: $CLIENT" --data-binary "$line" 2>/dev/null)"
+    curl_exit=$?
     body="$(cat "$tmp")"; rm -f "$tmp"
   }
   send_request
+  # A tool call waits out a blip (the VPN reconnecting): when the connection itself failed
+  # (curl 6 = no DNS, 7 = no connection), nothing was sent, so it is safe to try twice more.
+  if [ "$method" = tools/call ]; then
+    for _ in 1 2; do
+      case "$curl_exit" in 6|7) sleep 2; send_request ;; *) break ;; esac
+    done
+  fi
   # A refused token may simply be the old one: a fresh download replaces it and the request goes once more.
   if [ "$status" = 401 ] && adopt_downloaded_token; then token="$(current_token)"; send_request; fi
   case "$status" in 000|"") ;; *) offline_until=0 ;; esac
@@ -197,7 +205,7 @@ while IFS= read -r line || [ -n "$line" ]; do
         printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}'
       fi ;;
     401) answer_offline "$id" "$method" -32003 "Wyss Apps refused the token (expired, revoked or wrong). $TOKEN_HELP$(token_file_warning)" "$line" ;;
-    403) answer_offline "$id" "$method" -32003 "Wyss Apps refused this account: it does not have the AI Assistant (Claude) tool. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu)." "$line" ;;
+    403) answer_offline "$id" "$method" -32003 "Wyss Apps refused this account: it does not have the AI Assistant tool. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu)." "$line" ;;
     429) [ -n "$id" ] && reply_error "$id" -32004 '"Wyss Apps rate limit: more than 120 requests a minute on this token. Wait a minute."' ;;
     000|"") offline_until=$(( $(date +%s) + 15 )); answer_offline "$id" "$method" -32002 "$OFFLINE_HELP" "$line" ;;
     *) answer_offline "$id" "$method" -32005 "Wyss Apps answered HTTP $status: ${body:0:200}" "$line" ;;

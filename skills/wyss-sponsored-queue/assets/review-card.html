@@ -1,0 +1,285 @@
+<h2 class="sr-only" id="sq-summary">Sponsored queue review: one row per grant with the suggested classification preselected; fix what is wrong and save the batch.</h2>
+<style>
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sq{font-size:14px;line-height:1.5;color:var(--text-primary)}
+.sq-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:0 0 8px;color:var(--text-secondary);font-size:13px}
+.sq-head strong{font-weight:500;color:var(--text-primary);font-size:15px}
+.sq-row{border-top:0.5px solid var(--border);padding:14px 0 16px}
+.sq-row.skipped .sq-body{opacity:1;color:var(--text-muted)}
+.sq-row.skipped select,.sq-row.skipped .sq-why{color:var(--text-muted)}
+.sq-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sq-name{font-weight:500;font-size:15px;margin:0}
+.sq-name a{color:var(--text-primary);text-decoration:none}
+.sq-name a:hover{text-decoration:underline}
+.sq-name .n{color:var(--text-muted);font-weight:400;margin-right:6px}
+.sq-meta{color:var(--text-secondary);font-size:13px;margin:2px 0 0}
+.sq-amount{font-size:13px;color:var(--text-secondary);white-space:nowrap}
+.sq-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:10px}
+.sq-field label{display:block;font-size:12px;color:var(--text-secondary);margin:0 0 4px}
+.sq-field select{width:100%}
+.sq-why{font-size:12px;color:var(--text-muted);margin:4px 0 0;line-height:1.4}
+.sq-set{font-size:14px;padding:7px 0}
+.sq-err{font-size:13px;color:var(--text-danger);margin:4px 0 0;display:none}
+.sq-field.bad .sq-err{display:block}
+.sq-field.bad select{box-shadow:0 0 0 1px var(--border-danger)}
+.sq-note{font-size:13px;color:var(--text-warning);margin:8px 0 0}
+.sq-award{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 16px;margin-top:10px;font-size:13px}
+.sq-award div span{display:block;color:var(--text-secondary);font-size:12px}
+.sq-missing{font-size:13px;color:var(--text-warning);margin:8px 0 0}
+.sq-seg{display:inline-flex;border:0.5px solid var(--border-strong);border-radius:var(--radius);overflow:hidden;flex-shrink:0}
+.sq-seg button{border:0;border-radius:0;background:transparent;font-size:13px;padding:5px 12px;color:var(--text-secondary);box-shadow:none}
+.sq-seg button+button{border-left:0.5px solid var(--border-strong)}
+.sq-seg button.on{background:var(--text-primary);color:var(--surface-2);font-weight:500}
+.sq-row.skipped .sq-seg button.on{background:var(--text-muted)}
+.sq-seg button:active{transform:none}
+.sq-foot{border-top:0.5px solid var(--border);padding:14px 0 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sq-foot .spacer{flex:1}
+.sq-status{font-size:13px;color:var(--text-secondary)}
+.sq-foot button.quiet{border-color:transparent;color:var(--text-secondary)}
+.sq.locked select,.sq.locked .sq-seg button{pointer-events:none;color:var(--text-muted)}
+.sq.locked .sq-foot button{display:none}
+</style>
+<div class="sq" id="sq"></div>
+<script type="application/json" id="sq-data">
+{"queue":"pending","counts":{"pending":0,"awarded":0},"start":1,"total":0,"options":{"funding_sources":[],"platforms":[]},"grants":[]}
+</script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('sq-data').textContent);
+  var root = document.getElementById('sq');
+  var awarded = data.queue === 'awarded';
+  var grants = data.grants || [];
+  var state = {};
+  var sent = false;
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function sure(f) { return f && (f.sure === 'high' || f.sure === 'medium'); }
+
+  function fieldSelect(g, key, label, options) {
+    var f = (g.fields && g.fields[key]) || {};
+    var wrap = el('div', 'sq-field');
+    wrap.appendChild(el('label', null, label));
+    if (f.current) {
+      wrap.appendChild(el('div', 'sq-set', f.current));
+      wrap.appendChild(el('p', 'sq-why', 'Already set'));
+      state[g.n][key] = f.current;
+      state[g.n][key + 'Fixed'] = true;
+      return wrap;
+    }
+    var sel = el('select');
+    sel.setAttribute('aria-label', label + ' for ' + g.name);
+    var choose = el('option', null, 'Choose…');
+    choose.value = '';
+    sel.appendChild(choose);
+    var names = options.slice();
+    if (f.suggest && names.indexOf(f.suggest) === -1) names.unshift(f.suggest);
+    if (f.suggest && !sure(f)) {
+      names = [f.suggest].concat(names.filter(function (n) { return n !== f.suggest; }));
+    }
+    names.forEach(function (n) {
+      var o = el('option', null, (f.suggest === n && !sure(f)) ? n + ' (suggested)' : n);
+      o.value = n;
+      sel.appendChild(o);
+    });
+    sel.value = (f.suggest && sure(f)) ? f.suggest : '';
+    state[g.n][key] = sel.value;
+    sel.addEventListener('change', function () {
+      state[g.n][key] = sel.value;
+      wrap.classList.remove('bad');
+    });
+    wrap.appendChild(sel);
+    if (f.why) wrap.appendChild(el('p', 'sq-why', (f.sure === 'high' ? 'Likely: ' : f.sure === 'medium' ? 'Probably: ' : 'Guess: ') + f.why));
+    else if (!f.suggest) wrap.appendChild(el('p', 'sq-why', 'No guess; your call'));
+    var err = el('p', 'sq-err', 'Choose one, or skip this grant');
+    wrap.appendChild(err);
+    wrap.dataset.key = key;
+    return wrap;
+  }
+
+  function linkSelect(g) {
+    var wrap = el('div', 'sq-field');
+    wrap.appendChild(el('label', null, 'Wyss project'));
+    var sel = el('select');
+    sel.setAttribute('aria-label', 'Wyss project to link for ' + g.name);
+    var none = el('option', null, "Don't link");
+    none.value = '';
+    sel.appendChild(none);
+    (g.wyss_projects || []).forEach(function (w) {
+      var o = el('option', null, w.name);
+      o.value = w.name;
+      sel.appendChild(o);
+    });
+    sel.value = '';
+    state[g.n].link = '';
+    sel.addEventListener('change', function () { state[g.n].link = sel.value; });
+    wrap.appendChild(sel);
+    wrap.appendChild(el('p', 'sq-why', (g.wyss_projects && g.wyss_projects.length) ? 'Probably belongs with this Wyss project' : 'No likely Wyss project'));
+    return wrap;
+  }
+
+  function segment(g, choices, initial, row) {
+    var seg = el('div', 'sq-seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Decision for ' + g.name);
+    choices.forEach(function (c) {
+      var b = el('button', c.value === initial ? 'on' : '', c.label);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        state[g.n].action = c.value;
+        Array.prototype.forEach.call(seg.children, function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        row.classList.toggle('skipped', c.value === 'skip');
+        Array.prototype.forEach.call(row.querySelectorAll('.sq-field.bad'), function (x) { x.classList.remove('bad'); });
+        updateFooter();
+      });
+      seg.appendChild(b);
+    });
+    state[g.n].action = initial;
+    return seg;
+  }
+
+  function money(v) { return v == null || v === '' ? '—' : v; }
+
+  function renderGrant(g) {
+    state[g.n] = {};
+    var row = el('div', 'sq-row');
+    row.dataset.n = g.n;
+    var top = el('div', 'sq-top');
+    var left = el('div', 'sq-body');
+    var name = el('p', 'sq-name');
+    name.appendChild(el('span', 'n', g.n + '. '));
+    if (g.url) {
+      var a = el('a', null, g.name);
+      a.href = g.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      name.appendChild(a);
+    } else {
+      name.appendChild(document.createTextNode(g.name));
+    }
+    left.appendChild(name);
+    var meta = [];
+    if (g.pi) meta.push(g.pi + (g.faculty && g.faculty !== g.pi ? ' (' + g.faculty + ')' : ''));
+    if (g.sponsor) meta.push(g.sponsor + (g.via ? ' via ' + g.via : ''));
+    if (g.submitted) meta.push('submitted ' + g.submitted);
+    if (meta.length) left.appendChild(el('p', 'sq-meta', meta.join(' · ')));
+    top.appendChild(left);
+    var right = el('div');
+    right.style.display = 'flex';
+    right.style.flexDirection = 'column';
+    right.style.alignItems = 'flex-end';
+    right.style.gap = '6px';
+    if (g.amount && !awarded) right.appendChild(el('span', 'sq-amount', g.amount));
+    right.appendChild(awarded
+      ? segment(g, [{ value: 'right', label: 'Looks right' }, { value: 'wrong', label: 'Not right' }, { value: 'skip', label: 'Skip' }], 'right', row)
+      : segment(g, [{ value: 'save', label: 'Save' }, { value: 'skip', label: 'Skip' }], 'save', row));
+    top.appendChild(right);
+    row.appendChild(top);
+
+    if (awarded) {
+      var aw = g.award || {};
+      var grid = el('div', 'sq-award');
+      [['Fund', aw.fund], ['Award date', aw.award_date], ['Start', aw.start], ['End', aw.end], ['Proposed', money(aw.proposed)], ['Anticipated', money(aw.anticipated)]].forEach(function (p) {
+        var d = el('div');
+        d.appendChild(el('span', null, p[0]));
+        d.appendChild(document.createTextNode(p[1] || '—'));
+        grid.appendChild(d);
+      });
+      row.appendChild(grid);
+      if (aw.missing && aw.missing.length) row.appendChild(el('p', 'sq-missing', 'Missing: ' + aw.missing.join(', ')));
+    } else {
+      var fields = el('div', 'sq-fields');
+      fields.appendChild(fieldSelect(g, 'funding_source', 'Funding source', data.options.funding_sources || []));
+      fields.appendChild(fieldSelect(g, 'platform', 'Platform initiative', data.options.platforms || []));
+      fields.appendChild(linkSelect(g));
+      row.appendChild(fields);
+    }
+    if (g.note) row.appendChild(el('p', 'sq-note', g.note));
+    return row;
+  }
+
+  var head = el('div', 'sq-head');
+  var end = data.start + grants.length - 1;
+  var title = el('span');
+  title.appendChild(el('strong', null, awarded ? 'Awarded, unchecked' : 'Pending classification'));
+  title.appendChild(document.createTextNode(grants.length ? ' · grants ' + data.start + '–' + end + ' of ' + data.total : ' · nothing waiting'));
+  head.appendChild(title);
+  var c = data.counts || {};
+  head.appendChild(el('span', null, (c.pending != null ? c.pending + ' pending' : '') + (c.awarded != null ? ' · ' + c.awarded + ' awarded unchecked' : '')));
+  root.appendChild(head);
+  grants.forEach(function (g) { root.appendChild(renderGrant(g)); });
+
+  var foot = el('div', 'sq-foot');
+  var saveBtn = el('button', null, '');
+  saveBtn.type = 'button';
+  var stopBtn = el('button', 'quiet', 'Stop here ↗');
+  stopBtn.type = 'button';
+  var status = el('span', 'sq-status', '');
+  foot.appendChild(saveBtn);
+  foot.appendChild(stopBtn);
+  foot.appendChild(el('span', 'spacer'));
+  foot.appendChild(status);
+  root.appendChild(foot);
+
+  function counted() {
+    return grants.filter(function (g) { return state[g.n].action !== 'skip'; }).length;
+  }
+  function updateFooter() {
+    var n = counted();
+    saveBtn.textContent = (awarded ? 'Record ' : 'Save ') + n + (n === 1 ? ' grant' : ' grants') + ' ↗';
+  }
+  updateFooter();
+
+  function line(g) {
+    var s = state[g.n];
+    if (s.action === 'skip') return g.n + '. ' + g.name + ': skip';
+    if (awarded) return g.n + '. ' + g.name + ': ' + (s.action === 'right' ? 'looks right' : 'not right');
+    var parts = ['funding source: ' + s.funding_source, 'platform: ' + s.platform];
+    if (s.link) parts.push('link to Wyss project: ' + s.link);
+    return g.n + '. ' + g.name + ': ' + parts.join('; ');
+  }
+
+  function send(text) {
+    if (typeof sendPrompt === 'function') sendPrompt(text);
+    else console.log('sendPrompt:\n' + text);
+  }
+
+  saveBtn.addEventListener('click', function () {
+    if (sent) return;
+    var bad = false;
+    if (!awarded) {
+      grants.forEach(function (g) {
+        if (state[g.n].action === 'skip') return;
+        var row = root.querySelector('.sq-row[data-n="' + g.n + '"]');
+        ['funding_source', 'platform'].forEach(function (k) {
+          if (!state[g.n][k]) {
+            bad = true;
+            var f = row.querySelector('.sq-field[data-key="' + k + '"]');
+            if (f) f.classList.add('bad');
+          }
+        });
+      });
+    }
+    if (bad) { status.textContent = 'Choose a value for each grant you are saving, or skip it'; return; }
+    if (!grants.length) return;
+    sent = true;
+    root.classList.add('locked');
+    var header = 'Sponsored queue (' + data.queue + '), grants ' + data.start + '–' + end + ':';
+    var text = header + '\n' + grants.map(line).join('\n');
+    status.textContent = 'Sent to Claude: ' + counted() + ' to ' + (awarded ? 'record' : 'save') + ', ' + (grants.length - counted()) + ' skipped';
+    send(text);
+  });
+  stopBtn.addEventListener('click', function () {
+    if (sent) return;
+    sent = true;
+    root.classList.add('locked');
+    status.textContent = 'Stopped; nothing from this card was sent';
+    send('Stop the sponsored queue review here.');
+  });
+})();
+</script>

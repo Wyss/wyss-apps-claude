@@ -1,6 +1,6 @@
 ---
 name: wyss-costing-changes
-description: Do the payroll costing changes, attended or unattended - "run the costing changes", "scheduled run of the costing changes", "keepalive for the costing changes", "rehearse the costing changes", "what costing changes are waiting", "did Rebecca's change go in", "did HMS reply about Perelman". Keys every pending change into PeopleSoft in the person's own Chrome (Claude in Chrome) with a scripted fill, leaves each one ready for their Save, files the backup once saved and tidies the tabs. A job another school costs (HMS department, SEAS) is routed instead: the form goes to that school's payroll contact as an Outlook draft the person sends, and their reply is filed as the backup. The person signs in once and clicks Save (or Send); nothing else. Use for anything about costing changes, re-costing someone's payroll, the PeopleSoft entry queue, or Beth's queue.
+description: Do the payroll costing changes, attended or unattended - "run the costing changes", "scheduled run of the costing changes", "keepalive for the costing changes", "rehearse the costing changes", "what costing changes are waiting", "did Rebecca's change go in", "did HMS reply about Perelman". Keys every pending change into PeopleSoft in the person's own Chrome (Claude in Chrome) with a scripted fill, leaves each one ready for their Save, files the backup once saved and tidies the tabs. A chart string Wyss Apps does not know ("why is this one held", "is this fund valid", "check this coding") is checked against the Harvard Chart of Accounts Validator and released when Harvard accepts it. A job another school costs (HMS department, SEAS) is routed instead: the form goes to that school's payroll contact as an Outlook draft the person sends, and their reply is filed as the backup. The person signs in once and clicks Save (or Send); nothing else. Use for anything about costing changes, re-costing someone's payroll, the PeopleSoft entry queue, or Beth's queue.
 ---
 
 # Costing changes
@@ -39,10 +39,15 @@ card to the costing channel per reason per day; the chat is not read when they a
 
 ## Preflight (in this order; fail fast, claim nothing until it passes)
 
+This skill needs Claude with the Wyss Apps plugin and Claude in Chrome (the script it loads,
+`lib/peoplesoft.js`, ships with the plugin). In any other assistant (Codex), reading the queue
+works (`list_costing_changes`, `get_costing_change`, review actions) but keying does not: say
+"Keying costing changes into PeopleSoft works in Claude only for now." and stop before claiming.
+
 | # | Check | How | Fail → |
 |---|---|---|---|
-| 1 | Wyss Apps token | `whoami` answers and `tools` includes Costing Changes (if `plugin.update_available`, say its `plugin.update` line once and go on) | present: repeat the bridge's one-sentence fix; scheduled: `report_run_status` `token_invalid` or `vpn` (from the message) and stop |
-| 2 | Work exists | `list_costing_changes` `status: ["ready","claimed","staged"]`: anything ready, or claimed/staged by this person | "Nothing waiting." and stop (scheduled: that one line, no card) |
+| 1 | Wyss Apps token | `whoami` answers and `tools` includes Costing Changes (if `plugin.update_available`, say its `plugin.update` line once and go on) | "not reachable" or a dropped connection is often a blip: wait a minute and call `whoami` again, up to 3 tries, before treating it as a failure. Then present: repeat the bridge's one-sentence fix; scheduled: `report_run_status` `token_invalid` or `vpn` (from the message) and stop |
+| 2 | Work exists | `list_costing_changes` `status: ["ready","claimed","staged","needs_review"]`, with `refresh: true` in a present or scheduled run (never a keepalive): anything ready, claimed/staged by this person, or held by a chart string (below) | "Nothing waiting." and stop (scheduled: that one line, no card) |
 | 3 | Not blackout | `payroll_blackout` is null | "Payroll blackout until <date>; nothing keyed." Stop; no card |
 | 4 | Chrome reachable | the Claude in Chrome tools exist and `tabs_context_mcp` answers | present: "Open Chrome and leave it open, then say go." scheduled: `report_run_status` `chrome_closed` ("Open Chrome and leave it open; the next run is at <time>") and stop |
 | 5 | PeopleSoft session | open the Costing search URL in a new tab, load `lib/peoplesoft.js`, `WYSS.state()` | see the state table |
@@ -51,8 +56,21 @@ card to the costing channel per reason per day; the chat is not read when they a
 Costing search URL:
 `https://peoplesoft.hrapps.harvard.edu/psp/psprdaws/EMPLOYEE/HRMS/c/HU_CUSTOM_POS.HU_COSTING_SEARCH.GBL`
 
-Routed requests (`routed_to` set) and replies from other schools need no PeopleSoft: in a
-present run with only that work, skip checks 3 to 6. Checks 4 to 6 run once per run, not per request. When all pass in a scheduled run or keepalive,
+The same patience applies mid-run: a Wyss Apps call that fails with "not reachable" is retried
+after a minute (up to 3 tries) before the request is skipped; nothing is lost, the request keeps
+its state. Chrome's tab group can be replaced between steps ("No tab available"): call
+`tabs_context_mcp` with `createIfEmpty` before each new step, and reopen by URL, never assume
+an earlier tab id still exists.
+
+`refresh: true` asks Wyss Apps to read the request list again in the background (at most once
+every 10 minutes; it answers at once). The list in hand is the one from before the refresh, so
+list again without `refresh` after checks 4 to 6, just before gathering the work. `source` says
+how fresh the queue can be: `live: true` reads the SharePoint list itself (checked every hour);
+otherwise it is the overnight copy, and a request typed today appears tomorrow morning. Say
+that only when someone asks why a request they just typed is missing.
+
+Routed requests (`routed_to` set), chart checks and replies from other schools need no
+PeopleSoft: in a present run with only that work, skip checks 3 to 6. Checks 4 to 6 run once per run, not per request. When all pass in a scheduled run or keepalive,
 call `report_run_status` with `state: "ok"` once (it clears the person's open notices).
 
 ### State table (`WYSS.state()`)
@@ -90,11 +108,70 @@ From the preflight list, `whoami` gives the person's email for `claimed_by`:
 - **Routed, parked** (`needs_review`, `routed_to` set, no `errors`): a reviewer set it aside as
   routed, or it was edited after it was sent and the school needs the new form. Present run:
   send it like a routed one (`list_costing_changes` `status: ["needs_review"]` to find them).
+- **Held by a chart string** (`needs_review`, no `routed_to`, `chart_strings_to_check` not
+  empty in `get_costing_change`): Wyss Apps only knows chart strings the general ledger has
+  already used, so a brand-new fund is held the same way a typo is. Do the chart check (next
+  section) before anything else, in every mode; it needs no PeopleSoft and no question. Most
+  are released by it and are then waiting like any other, keyed in this same run.
+- **Held, rejected by Harvard** (`needs_review`, an entry in `errors` says "the Harvard COA
+  Validator rejects it"): a real error. Nothing to key and nothing to accept; the requester
+  corrects the row in the list. Say it in the final line with the validator's own words
+  ("Perelman 12/01 is held: activity 379854 does not exist; Lily Zheng corrects it in the
+  list"). Any other error in `errors`: the same, the requester fixes the list.
 - `sent_external` rows are with the other school: nothing to key. Check for their reply (below)
   in a present run or the finisher; a scheduled run leaves them alone.
 
 Two unsaved filled pages for the same request must never exist. That is why a staged request is
 never refilled by a scheduled run.
+
+## Chart check (every mode; before keying)
+
+For each request held by a chart string, and whenever someone asks whether a coding is valid.
+The Harvard Chart of Accounts Validator is the authority; it needs no sign-in and shows nothing
+private. Wyss Apps cannot reach it from its server, so the check runs here, in the person's
+Chrome, and is reported back.
+
+1. `get_costing_change`: `chart_strings_to_check` lists the strings (seven segments,
+   `tub.org.object.fund.activity.subactivity.root`). Empty: nothing to check.
+2. Open the validator in a **new tab of this run**:
+   `https://finprod.huit.harvard.edu:8000/OA_HTML/OA.jsp?page=/oracle/apps/huicx/huglCoaVal/webui/huglCoaValPG`
+   The page title reads "Chart of Accounts Validator" and has the inputs `tubCode`, `orgCode`,
+   `objectCode`, `fundCode`, `actCode`, `subactCode`, `rootCode` (element ids).
+3. For each string: set the seven inputs by id from the script (here assigning `.value` is
+   right; this is not PeopleSoft), click `#SearchButton`, wait for the page to reload (about 3
+   seconds), then read by id: `Success` ("Y" or "N"), `CCID` (a number, or "Not Yet Created"),
+   `ResultMessage`, and the descriptions `fundDesc`, `actDesc`, `rootDesc`. Check the echoed
+   segments (`tub`, `org`, `object`, `fund`, `activity`, `subactivity`, `root`) equal what was
+   typed before trusting the answer. One string per search; the page keeps the last values,
+   so set all seven every time.
+4. `report_coa_validation` with the request `id` and `results`: one entry per string with
+   `coa_string`, `success` (true for "Y"), `ccid` (null for "Not Yet Created"), `message` and
+   `descriptions` (`fund`, `activity`, `root`). Report exactly what the page showed, a rejection
+   as much as an acceptance; never report a string that was not searched. No confirmation is
+   asked: this records Harvard's answer, it decides nothing.
+5. The answer says what happened. **Released**: Harvard accepts it ("new COA combination, no
+   CCID yet" is the normal case for a new fund; PeopleSoft creates the combination). It is now
+   waiting to be keyed, in this run. **Still held**: Harvard rejects it; see "Held, rejected by
+   Harvard". **Accepted but not released** (the request was changed while it was being keyed):
+   a reviewer has to look first; say so in the final line and key nothing. Close the validator
+   tab.
+
+When the validator will not open (an Oracle "Error" page instead of the form, which happens
+when the browser holds another Oracle Financials session, or the site does not answer): close
+the tab and try once more in a fresh tab. Still not: present run, say "I could not open the
+Harvard chart validator here. Open it in a private (incognito) window and tell me what it says
+for <string>, or say *accept* if you know the string is right." On their reading, report it
+with `report_coa_validation`; on **accept**, `review_costing_change` `accept_chart_errors` with
+`note` = who confirmed which string, `confirm: true`. Never accept on your own, and never
+when the string is one digit away from a fund or activity on the request's other lines or in
+`current_distribution` (say so: that is a typo until the requester says otherwise). Scheduled
+run or keepalive: leave it and add "1 held for a chart check (Tam): say *run the costing
+changes*" to the final line.
+
+A person who says the fund was only just created, after a rejection: run the chart check again
+(the validator sees new values the same day). `review_costing_change` `recheck` prepares the
+request again in Wyss Apps with the answers already reported, for a row the requester has
+just corrected; a corrected string is a new string, so check it too.
 
 ## Key each request
 
@@ -122,7 +199,9 @@ never refilled by a scheduled run.
    ("PeopleSoft already shows different costing; flagged for Matthew").
 5. `await WYSS.fill(spec)`: adds the effective-dated row, sets the date, makes the lines equal
    `spec.distributions` **in that order** (the order the Wyss Apps review page lists them, so
-   the two can be compared row for row; never reorder them, by hand either), waits for each refresh, makes PeopleSoft recompute the Distribution
+   the two can be compared row for row; never reorder them, by hand either: existing lines are
+   overwritten in place and lines are added or removed at the end, because PeopleSoft cannot
+   move a line), waits for each refresh, makes PeopleSoft recompute the Distribution
    Total (`WYSS.recalc()`) when the page still shows a stale one, and returns the readback only
    when `WYSS.verify(spec, readback)` is empty. If the only problem reported is "Distribution
    Total shows … the page has not recalculated": click into the last percentage field in the
@@ -143,9 +222,15 @@ never refilled by a scheduled run.
    the object code (`HU_DEPBUDERN_VW_ACCOUNT$n`); leave Earnings Code blank. Type the values
    and press Tab out of each field (PeopleSoft recomputes the total on that keystroke). Wait
    until "Distribution Total" reads 100.000 with no error text; `WYSS.readPage()` for the
-   readback and `WYSS.verify(spec, readback)` must be empty.
+   readback and `WYSS.verify(spec, readback)` must be empty. Reach every field by its element
+   id, never by screen coordinates (they drift when the page scrolls or redraws): `focus()` and
+   `select()` on the field from the script, then type the value with real keystrokes, press
+   Tab and wait about 2 seconds. Never assign `.value` directly: PeopleSoft does not see the
+   change. On a new line the object code fills itself once fund and activity are in, and the
+   Status column stays blank until Save; both are normal.
 7. `mark_costing_change_staged` with the readback, `confirm: true`; keep the result's
-   `backup_upload_url`. A mismatch: leave the tab open, skip ("flagged for review").
+   `backup_upload_url`. The comparison ignores line order (the same lines and percentages in
+   any order match). A mismatch: leave the tab open, skip ("flagged for review").
 
 Never close a tab whose row is filled and unsaved.
 
@@ -206,6 +291,11 @@ its only output):
 > needs keying by hand). Click Save on each tab, then type done, or just leave them: the next
 > keepalive files the backups for anything you have saved.
 
+The lines are keyed in the order the request lists them. PeopleSoft may list them in a
+different order once saved (it re-sorts on Save), so the saved page and the backup can show
+another order; the lines and percentages are what is checked. Say this once, the first time
+it applies ("PeopleSoft may reorder the lines when you save; that is normal").
+
 Present run: wait for "done" and run After Save. Scheduled run: stop here.
 
 ## After Save (the finisher; any mode can run it)
@@ -225,7 +315,12 @@ message alone.
    minus, or `zoom` on the page body in `TargetContent`) until the header, the position and
    incumbent data and the full costing grid with Effective Date and Distribution Total all fit
    in one view, then screenshot it; check the screenshot shows all three before filing (a
-   backup without the employee section is incomplete). Reset the zoom afterwards. The backup is the page exactly as
+   backup without the employee section is incomplete). Reset the zoom afterwards. A page
+   opened by its direct URL may have no `TargetContent` iframe: the zoom then goes on
+   `document.body`, with factor min(1, innerHeight / scrollHeight, innerWidth / scrollWidth).
+   Take the screenshot at full scale: one saved at a reduced scale is too coarse to read.
+   Trimming the empty margin to the right of the page is fine; nothing of the page itself is
+   cut. One full-page PDF is the preferred form when this session can make one. The backup is the page exactly as
    shown: never mask, crop, hide or edit anything on it, pay rates included (the rule about
    pay rates is about what Claude writes and says, not about the backup). Open `backup_upload_url` (from the
    staged result or `get_costing_change`) in a new tab: no sign-in needed. `find`
@@ -243,12 +338,24 @@ message alone.
    sender; still none: ask. `outlook_create_draft`, `bodyType: "html"`, the body wrapped in
    `<div style="font-family:Calibri,sans-serif;font-size:11pt">`: who, which costing, from
    which date, saved in PeopleSoft, backup attached. Attach the backup from
-   `backup_download_url` the way a routed form is attached (Routed, step 4). Never send.
+   `backup_download_url` the way a routed form is attached (Routed, step 4). In Outlook on the
+   web the draft opens read-only: click the pencil (Edit) first, then upload to the attachment
+   input, which is the second `input[type=file]` on the page (the first takes inline pictures
+   only). Quick check of the font: Calibri 11 reads 14.6667px in the computed style. Never send.
 4. **Tidy.** Close the tabs this run opened for finished requests and the backup tabs. Leave
    one PeopleSoft tab open on the Costing search page. Never close a tab with an unsaved row.
-5. **SharePoint rows**: never change them unless the person says *uncheck* in the chat, each
-   time; then, in the SharePoint list in Chrome, uncheck only the rows of the requests just
-   filed.
+5. **SharePoint rows**: Wyss Apps unticks Pending on the request's rows by itself after the
+   save where that is switched on (the request's `history` then shows "Pending cleared in the
+   SharePoint list"); there is then nothing to do and nothing to say. Otherwise never change
+   them unless the person says *uncheck* in the chat, each time; then, in the SharePoint list
+   in Chrome, uncheck only the rows of the requests just filed. Quickest from a tab on the list's SharePoint site, through its REST API as the
+   person: read the list items with `$filter=EmploymentIDId eq <id>` (the number before the
+   colon in the request's `source_item_id`), keep the rows whose EffectiveDate is the
+   request's and compare them with the saved lines (fields Tub, Org, Obj, Fund, Act, Sub, Root,
+   EffortPercentage as a fraction such as 0.23, EffectiveDate, IsPending); only when they
+   match, MERGE `IsPending: false` on each of those rows with a request digest, then read
+   again and confirm none of them is still pending. Rows that do not match: change nothing
+   and say which.
 6. Present run: one line, "Done: 2 saved and filed (Vernet, Kim). Emails drafted to Lily
    Zheng and Ana Ruiz: open them in Outlook and click Send."; scheduled: nothing.
 
@@ -265,7 +372,11 @@ messages.
    once (that is the keepalive), then `report_run_status` `ok`.
 3. Run After Save for the person's `staged` requests (reopen each by URL; file the backup for
    the saved ones; leave the rest). Close every tab this keepalive opened.
-4. Print nothing, except "Filed: Vernet." when a backup was filed.
+4. Chart check for any request held by a chart string (`list_costing_changes`
+   `status: ["needs_review"]`): it needs no PeopleSoft, so it runs even when step 2 stopped
+   short. A released request is keyed by the next scheduled run, never by a keepalive.
+5. Print nothing, except "Filed: Vernet." when a backup was filed and "Chart check: Perelman
+   released." when one was released.
 
 ## Rehearsal (dry run, nothing saved)
 
@@ -285,14 +396,22 @@ Work words, never statuses.
 - "What's waiting?" → `list_costing_changes` `status: ["ready","claimed","staged"]`: "3 are
   waiting to be keyed (names, effective dates); 1 is filled and waiting for your Save."
 - "Why is Rebecca's stuck?" → `search: "Rebecca"`, `get_costing_change`; translate `errors`,
-  `warnings`, `review_note` and the last `history` entry into one plain sentence.
+  `warnings`, `review_note` and the last `history` entry into one plain sentence. Held by a
+  chart string: do the chart check now and answer with its result ("It was held on a new DARPA
+  fund Wyss Apps had not seen; Harvard's validator accepts it, so it is now waiting to be keyed").
+- "Is 635.67116.6140.153592.379853.0002.87612 valid?" → the chart check, steps 2 and 3, for
+  that string, with no request and nothing reported: "Valid; a new combination with no CCID
+  yet. Fund: Church, DARPA HELIOS. Root: Tam, Jenny." or the validator's rejection.
+- "I just typed one, where is it?" → `list_costing_changes` with `refresh: true`, wait a
+  minute, list again; `source.live` false means it arrives with the overnight copy.
 - "Did HUID 81657165 go in?" → `submitted`/`backup_filed` means "yes, saved on <date>"
   (`confirmed_in_peoplesoft_at` adds "and PeopleSoft confirmed it overnight"); `staged` means
   "filled, not yet saved"; `sent_external` means "sent to <school> on <date>, waiting for their
   backup" (then check for the reply, above); earlier means "not yet keyed".
 - "Did HMS reply about Perelman?" → the reply check above for that request.
-- Reviewers, when they ask: `review_costing_change` (`mark_ready`, `send_back` with a note,
-  `cancel` with a note); preview, then confirm on their yes.
+- Reviewers, when they ask: `review_costing_change` (`mark_ready`, `recheck`,
+  `accept_chart_errors` with a note, `send_back` with a note, `cancel` with a note); preview,
+  then confirm on their yes.
 
 ## Setting up the scheduled tasks (once, in Cowork)
 
@@ -302,23 +421,25 @@ Work words, never statuses.
   Claude desktop app open and the computer awake. Closing Chrome means the next run asks for a
   sign-in (through the costing channel).
 - Both tasks must run **on the computer**, never in the cloud: a cloud session has neither the
-  Wyss Apps plugin nor the person's Chrome. In Claude, Settings, Cowork, turn off "Run new
-  tasks in the cloud" before creating them.
+  Wyss Apps plugin nor the person's Chrome. There is no personal setting for that any more
+  (the Claude organisation decides where Cowork runs): if the tasks cannot see Wyss Apps,
+  create them in the Code tab of the Claude desktop app, which always runs on the computer.
 
 ## Claude's bookkeeping (never shown to the person)
 
 | Tool | When |
 |---|---|
 | `whoami` | preflight; the person's email for `claimed_by` |
-| `list_costing_changes` | gather work; `status` list, `search`, `payroll_blackout` |
-| `get_costing_change` | `ps_fill_spec` (with `ps_url`), `current_costing`, `requester`, `backup_upload_url`, `backup_download_url`, `history` |
+| `list_costing_changes` | gather work; `status` list, `search`, `payroll_blackout`; `refresh: true` re-reads the request list in the background; `source` says how fresh it is |
+| `get_costing_change` | `ps_fill_spec` (with `ps_url`), `current_costing`, `requester`, `backup_upload_url`, `backup_download_url`, `history`, `chart_strings_to_check`, `coa_validator` (what Harvard's validator said, per string) |
+| `report_coa_validation` | the chart check's result for a held request; releases it when Harvard accepts every string |
 | `claim_costing_change` | before keying (2-hour lock, renewable) |
 | `release_costing_change` | the run cannot continue with a claimed request (session dropped) |
-| `mark_costing_change_staged` | page filled; readback checked; returns `backup_upload_url` |
+| `mark_costing_change_staged` | page filled; readback checked (line order ignored); returns `backup_upload_url` |
 | `rehearse_costing_change` | a dry run's readback, or a script failure, as a note |
 | `report_costing_change_error` | anything that stops one request; flags it for review |
 | `report_run_status` | scheduled runs and keepalives: `blocked` with a reason code (`chrome_closed`, `signed_out`, `duo_pending`, `no_access`, `system_down`, `token_invalid`, `vpn`, `unknown_page`; one card per reason per day), or `ok` |
-| `review_costing_change` | `mark_ready` to re-queue a lost one; reviewer decisions |
+| `review_costing_change` | `mark_ready` to re-queue a lost one; `recheck` after the requester corrected the list; `accept_chart_errors` (with a note) only when the validator cannot be opened and the person confirms the string; reviewer decisions |
 | `send_costing_change_external` | a routed request: form PDF, status sent to the school, the draft email |
 | `mark_costing_change_submitted` | optional; the backup upload records the save by itself |
 | `file_costing_change_backup` | a backup kept somewhere other than the request (the school's reply, when its PDF cannot be saved) |

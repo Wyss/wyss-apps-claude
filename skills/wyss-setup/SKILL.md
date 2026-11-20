@@ -1,6 +1,6 @@
 ---
 name: wyss-setup
-description: Check that Wyss Apps for Claude is set up for this person and fix what is not - "check my setup", "am I connected to Wyss Apps", "is this working", "what can I do here", the first message after installing the plugin, or any time a Wyss Apps tool fails with a token, VPN or access message. Verifies that the session runs on the computer, the token and the person's tool access, Claude in Chrome (PeopleSoft: costing changes and time off) and the Microsoft 365 connector (calendar, for meeting prep), tells them the one thing to fix, then shows what they can ask.
+description: Check that Wyss Apps is set up in this assistant (Claude or Codex) for this person and fix what is not - "check my setup", "am I connected to Wyss Apps", "is this working", "what can I do here", the first message after installing the plugin, or any time a Wyss Apps tool fails with a token, VPN or access message. Verifies that the session runs on the computer, the token and the person's tool access, the browser tool for PeopleSoft (Claude in Chrome: costing changes and time off) and the Microsoft 365 connector (calendar, for meeting prep), tells them the one thing to fix, then shows what they can ask.
 ---
 
 # Setup check
@@ -8,6 +8,14 @@ description: Check that Wyss Apps for Claude is set up for this person and fix w
 Three checks, each with one fix. Run them in order, say only what failed and how to fix it, and
 end with what the person can do now. Never paste the whole setup guide; the setup page already
 holds it: `https://wigt.med.harvard.edu/tools/claude_access`.
+
+**Which assistant.** These steps name Claude's menus. In **Codex** (the ChatGPT desktop app,
+the Codex command line or the IDE extension) there is no plugin: the connection is one block in
+the Codex settings file (`~/.codex/config.toml`; on Windows `%USERPROFILE%\.codex\config.toml`)
+that the setup page shows under **Codex**, with the token inside it. There, every token fix is
+"create a token on <setup page>, replace the `Bearer` value in that file with it, and restart
+Codex", a missing tool list is "add the Codex block from <setup page> and restart Codex", and
+checks 2 and 3 are skipped (see check 2).
 
 ## 1. Wyss Apps connection
 
@@ -22,7 +30,7 @@ Call `whoami`.
 | Error "Cannot reach Wyss Apps" or "Wyss Apps is not reachable from this computer right now" | "Wyss Apps is only reachable on the Harvard network or VPN. Connect to the VPN, then say check again." No restart is needed. |
 | The only Wyss Apps tool is `wyss_apps_status` | The chat started off the VPN on a computer that had never connected. "Connect to the VPN, then say check again." Call `wyss_apps_status`; once it answers, the full tool list loads (if it does not, start a new chat). |
 | Error "This Wyss Apps plugin is too old" | Give the update steps from the message, then "start a new chat". |
-| The `wyss-apps` tools are not there at all | Two causes; say both. (a) This Cowork session is running in the cloud, where the plugin cannot run: "In Claude, open Settings, Cowork, and turn off *Run new tasks in the cloud*; then start a new session and ask again" (a session cannot switch; it has to be a new one). (b) The plugin is not installed or enabled: "In Cowork, open Customize, then Plugins, add `https://github.com/Wyss/wyss-apps-claude`, install wyss-apps and enable it for this chat." On Windows, "Add marketplace" is only offered when Git for Windows is installed: if it is missing, "open PowerShell, run `winget install --id Git.Git -e --source winget`, accept the prompts, restart Claude; if Windows asks for admin rights you do not have, ask Wyss IT to install Git for Windows." On a Mac the server is `wyss-apps`; on Windows `wyss-apps-win`; the other one shows as failed, which is expected. |
+| The `wyss-apps` tools are not there at all | Two causes; say both. (a) This Cowork session is running in the cloud, where the plugin cannot run, and there is no personal setting for that any more (the Claude organisation decides where Cowork runs): "This task is running in the cloud, where Wyss Apps cannot be reached. Use the Code tab of the Claude desktop app, which always runs on your computer, and ask again there." (b) The plugin is not installed or enabled: "In Cowork, open Customize, then Plugins, add `https://github.com/Wyss/wyss-apps-claude`, install wyss-apps and enable it for this chat." On Windows, "Add marketplace" is only offered when Git for Windows is installed: if it is missing, "open PowerShell, run `winget install --id Git.Git -e --source winget`, accept the prompts, restart Claude; if Windows asks for admin rights you do not have, ask Wyss IT to install Git for Windows." On a Mac the server is `wyss-apps`; on Windows `wyss-apps-win`; the other one shows as failed, which is expected. |
 
 Stop after a failed check; the person fixes it and asks again.
 
@@ -34,6 +42,8 @@ enabled for this chat. If the Claude in Chrome tools (tabs, navigate, read page)
 "Install Claude in Chrome from the Chrome Web Store, sign in to it with the same account as this
 chat, and turn it on for this chat. Then say check again." If they are present, say "Claude in
 Chrome is on." and nothing more. Stop for this only when `whoami` lists the Costing Changes tool.
+In Codex, skip this check and say one line only if they ask about time off or costing changes:
+"Time off and costing changes in PeopleSoft work in Claude only for now."
 
 ## 3. Microsoft 365 (optional)
 

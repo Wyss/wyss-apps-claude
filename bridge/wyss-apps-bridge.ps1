@@ -5,7 +5,8 @@
 # When Wyss Apps cannot answer (off the VPN, no or expired token), Claude
 # still connects: initialize and tools/list come from the last good replies
 # in $HOME\.wyss-apps\cache (or a one-tool stub on a first run), and each tool
-# call returns the reason as a tool error. A connection gives up after 4s.
+# call returns the reason as a tool error. A connection gives up after 4s; a tool
+# call tries the connection 3 times (2s apart) before it says so.
 #   token: $env:WYSS_APPS_TOKEN, then $env:WYSS_APPS_TOKEN_FILE, then $HOME\.wyss-apps\token
 #   url:   $env:WYSS_APPS_URL, then $HOME\.wyss-apps\url, then https://wigt.med.harvard.edu/mcp
 # No token, or a refused one: the Claude access page's "Download token file" saves
@@ -45,7 +46,7 @@ $LastOk = [DateTime]::MinValue       # a TCP check (4s) runs first when nothing 
 function Get-WyssToken {
   if ($env:WYSS_APPS_TOKEN) { return $env:WYSS_APPS_TOKEN.Trim() }
   $file = if ($env:WYSS_APPS_TOKEN_FILE) { $env:WYSS_APPS_TOKEN_FILE } else { Join-Path $WyssDir "token" }
-  if (Test-Path $file) { return (Get-Content $file -Raw).Trim() }
+  if (Test-Path $file) { $raw = Get-Content $file -Raw; if ($raw) { return $raw.Trim() } }   # an empty file is no token
   return $null
 }
 # Move a fresh Downloads\wyss-apps-token into place as the token file. $true when a
@@ -142,16 +143,26 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
   $id = $null
   try { $msg = $line | ConvertFrom-Json; if ($msg.PSObject.Properties.Name -contains "id") { $id = $msg.id } }
   catch { Write-RpcError $null -32700 "Parse error"; continue }
+  try {   # one bad request must never end the bridge: Claude would see the server drop and reconnect
   $token = Get-WyssToken
   if (-not $token -and (Import-DownloadedToken)) { $token = Get-WyssToken }
   $url = Get-WyssUrl
   if (-not $token) { Send-OfflineAnswer $msg $id -32001 "No Wyss Apps token on this computer. $TokenHelp"; continue }
   $isCall = $msg.method -eq "tools/call"
   if (-not $isCall -and [DateTime]::UtcNow -lt $OfflineUntil) { Send-OfflineAnswer $msg $id -32002 $OfflineHelp; continue }
-  if (([DateTime]::UtcNow - $LastOk).TotalSeconds -gt 60 -and -not (Test-WyssReachable $url)) {
-    $OfflineUntil = [DateTime]::UtcNow.AddSeconds(15)
-    Send-OfflineAnswer $msg $id -32002 $OfflineHelp
-    continue
+  if (([DateTime]::UtcNow - $LastOk).TotalSeconds -gt 60) {
+    # Nothing has been sent yet, so a tool call can wait out a blip (the VPN reconnecting): 3 tries, 2s apart.
+    $tries = if ($isCall) { 3 } else { 1 }
+    $reachable = $false
+    for ($t = 1; $t -le $tries -and -not $reachable; $t++) {
+      if ($t -gt 1) { Start-Sleep -Seconds 2 }
+      $reachable = Test-WyssReachable $url
+    }
+    if (-not $reachable) {
+      $OfflineUntil = [DateTime]::UtcNow.AddSeconds(15)
+      Send-OfflineAnswer $msg $id -32002 $OfflineHelp
+      continue
+    }
   }
   # The stub tool is whoami under another name: once Wyss Apps answers, it proves the connection.
   if ($isCall -and $msg.params -and $msg.params.name -eq $StatusTool) { $line = $line.Replace('"name":"' + $StatusTool + '"', '"name":"whoami"') }
@@ -180,11 +191,14 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       switch ($status) {
         0 { $OfflineUntil = [DateTime]::UtcNow.AddSeconds(15); Send-OfflineAnswer $msg $id -32002 $OfflineHelp }
         401 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused the token (expired, revoked or wrong). $TokenHelp" }
-        403 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused this account: it does not have the AI Assistant (Claude) tool. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu)." }
+        403 { Send-OfflineAnswer $msg $id -32003 "Wyss Apps refused this account: it does not have the AI Assistant tool. Ask Matthew Laubach (matthew.laubach@wyss.harvard.edu)." }
         429 { if ($null -ne $id) { Write-RpcError $id -32004 "Wyss Apps rate limit: more than 120 requests a minute on this token. Wait a minute." } }
         default { Send-OfflineAnswer $msg $id -32005 "Wyss Apps answered HTTP $status. ($($err.Exception.Message))" }
       }
     }
     break
+  }
+  } catch {
+    try { if ($null -ne $id) { Write-RpcError $id -32603 "Wyss Apps bridge error: $($_.Exception.Message)" } } catch {}
   }
 }

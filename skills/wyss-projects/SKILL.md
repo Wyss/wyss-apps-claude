@@ -16,9 +16,11 @@ Matthew Laubach can grant it on their Wyss Apps account.
 Go straight to the question; do not call `whoami` first. A failed Wyss Apps call already says
 the one thing to do (missing or expired token, not on the VPN, no access): repeat that sentence
 and stop. If the Wyss Apps tools are missing altogether, say both causes and stop: this Cowork
-session may be running in the cloud, where the plugin cannot run (Settings, Cowork, turn off
-"Run new tasks in the cloud", then start a new session), or the plugin is not enabled for this
-chat (Customize, Plugins, add `https://github.com/Wyss/wyss-apps-claude` and enable it). A
+session may be running in the cloud, where the plugin cannot run (there is no personal setting
+for that any more; use the Code tab of the Claude desktop app, which always runs on the computer), or the plugin is not enabled for this
+chat (Customize, Plugins, add `https://github.com/Wyss/wyss-apps-claude` and enable it). In Codex there is
+no plugin: the Codex block on https://wigt.med.harvard.edu/tools/claude_access is missing from
+the Codex settings file. A
 result carrying `plugin_update` means the plugin is behind: add that one line and go on.
 The person does not need to know Wyss Apps: no tool names, no permission talk beyond "you do
 not have access to <thing>; ask Matthew Laubach". Lead with the result.
@@ -28,7 +30,7 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
 | Tool | Use it for |
 |---|---|
 | `whoami` | Who the connection is authenticated as, their role, flags (`financial_access`, `maintainer_on_all_projects`, `restricted_to_own_projects`) and which Wyss Apps tools they have. For "what can I see" and setup checks only; not before every answer. |
-| `search_projects` | Find projects by name, nickname, faculty or PI name, sponsor fund number, GMAS project id or segment key. `type` = `all` (default), `sponsored` or `wyss`; optional `status`; `limit` up to 50 per type. Active first, newest first; `totals` and a `note` say when more match than were shown. Returns ids for `get_project` and a `url` for each hit. A faculty name with many matches is a `faculty_view` question. |
+| `search_projects` | Find projects by name, nickname, faculty or PI name, sponsor fund number, GMAS project id or segment key. `type` = `all` (default), `sponsored` or `wyss`; optional `status`; `limit` up to 50 per type. Active first, newest first; `totals` and a `note` say when more match than were shown. Returns ids for `get_project` and a `url` for each hit; when exactly one project matches, the full project is already under `project` (no `get_project` needed). A faculty name with many matches is a `faculty_view` question. |
 | `get_project` | Everything the person may see about one project: `type` + `id` from a search. Sections the policy hides are listed in `sections_hidden_for_you`, never silently dropped. |
 | `search_science` | Questions about *the science*: topics, methods, diseases, organisms, materials, techniques, sponsors. Full-text over summaries, abstracts, problem statements, applications, status narratives and publications, ranked with a highlighted snippet. Quoted phrases, OR, -exclusions; filters `grand_challenge`, `platform`, `faculty`, `status`, `tag`. |
 | `list_science_themes` | The science map: the six Grand Challenges, the platform initiatives, tags, funding sources and the faculty with the most projects, with counts of what this person can see. Use it to choose filters and to explain how the Institute organises its work. |
@@ -37,7 +39,7 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
 | `faculty_view` | A faculty member's or PI's sponsored-project record by fiscal year: submitted / awarded / declined counts and dollars, success rate per year, time to award, by sponsor, funding source, Grand Challenge and platform, active portfolio, pipeline, new-money requests. The default (`detail: "summary"`) carries no per-project rows; ask for `detail: "full"` with one or two `fiscal_years` when the person wants the list of that year's grants. Definitions in the `wyss-metrics` skill. |
 | `sponsored_project_lookup` | One grant, everything: GMAS record and classification, funding timeline (requests, award revisions), accounts, spend by fiscal year, burndown with burn and runway, who is costed to it, and ready-made highlights. By id, fund number, GMAS id or name. |
 | `wyss_guide` | The guides, one topic per call: `style` (vocabulary and document style; **call before writing any report, summary, email or slide**), `metrics` (what every metric means; call before quoting numbers), `costing_changes`, `projects`. They are the same text as this plugin's skills, so Claude gets them without the plugin. |
-| `list_sponsored_queue` | The Sponsored Queues page (needs the Sponsored Queues tool): grants waiting for a funding source and platform (`pending`), awarded grants nobody has checked (`awarded`), grants with no maintainer or Grand Challenge (`missing_data`), each with a best guess per blank and why. `update_sponsored_queue_item` saves what the person confirms. The `wyss-sponsored-queue` skill is the walk-through. |
+| `list_sponsored_queue` | The Sponsored Queues page (needs the Sponsored Queues tool): grants waiting for a funding source and platform (`pending`), awarded grants nobody has checked (`awarded`), grants with no maintainer or Grand Challenge (`missing_data`), each with a best guess per blank and why. `update_sponsored_queue_item` saves what the person confirms. The `wyss-sponsored-queue` skill is the walk-through (an inline review card where `show_widget` exists, text otherwise). |
 | `list_costing_changes` | The payroll costing-change queue (needs the Costing Changes tool). Filter by `status` list and `search` (employee, HUID, requester, id). No salary or pay-rate data exists in these payloads. |
 
 ## Vocabulary
@@ -91,14 +93,14 @@ not have access to <thing>; ask Matthew Laubach". Lead with the result.
    financial access, so I can't see the dollars") rather than inferring values.
 5. Nothing here writes. If someone asks to change a project, point them to the project's `url`
    (Edit button) or to the maintainer listed on it.
-6. Every call is logged on the person's Claude access page in Wyss Apps; there is nothing to hide
+6. Every call is logged on the person's AI Assistant page in Wyss Apps; there is nothing to hide
    and nothing to work around.
 
 ## Connection problems
 
 Translate every failure into the one thing the person can do, never the code:
 
-- "invalid token" or "no token": "Make a new token on https://wigt.med.harvard.edu/tools/claude_access and save it with the page's one-line command; then ask again."
+- "invalid token" or "no token": "Make a new token on https://wigt.med.harvard.edu/tools/claude_access and click Download token file (in Codex: put it in the Codex block as the page shows and restart Codex); then ask again."
 - the account lacks a tool (403): "Your Wyss Apps account does not have that; ask Matthew Laubach."
 - Wyss Apps cannot be reached: "Connect to the Harvard VPN, then ask again."
 - too many requests (429): wait a minute and retry once, silently.

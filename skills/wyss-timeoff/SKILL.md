@@ -15,6 +15,10 @@ report. Anyone can run it, with or without costing access.
 
 ## Before anything (silent when it passes)
 
+This needs Claude with the Wyss Apps plugin and Claude in Chrome (the script it loads ships
+with the plugin). In any other assistant (Codex): "Checking time off works in Claude only for
+now." Stop.
+
 1. Claude in Chrome. If its tools (tabs, navigate, find, JavaScript) are not among your tools:
    "Install Claude in Chrome from the Chrome Web Store, sign in to it, and turn it on for this
    chat. Then ask again." Stop. If the tools exist but `tabs_context_mcp` fails: "Open Chrome,
